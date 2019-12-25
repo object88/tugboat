@@ -1,6 +1,7 @@
 package watch
 
 import (
+	"github.com/object88/tugboat/cmd/common"
 	"github.com/object88/tugboat/cmd/flags"
 	"github.com/object88/tugboat/cmd/traverse"
 	"github.com/spf13/cobra"
@@ -9,6 +10,7 @@ import (
 
 type command struct {
 	cobra.Command
+	*common.CommonArgs
 
 	cflags *genericclioptions.ConfigFlags
 
@@ -16,7 +18,7 @@ type command struct {
 }
 
 // CreateCommand returns the watch command
-func CreateCommand() *cobra.Command {
+func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 	var c *command
 	c = &command{
 		Command: cobra.Command{
@@ -30,6 +32,7 @@ func CreateCommand() *cobra.Command {
 				return c.Execute(cmd, args)
 			},
 		},
+		CommonArgs: ca,
 	}
 
 	flgs := c.Flags()

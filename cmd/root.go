@@ -8,6 +8,7 @@ import (
 	"github.com/object88/tugboat/cmd/completion"
 	"github.com/object88/tugboat/cmd/traverse"
 	"github.com/object88/tugboat/cmd/version"
+	"github.com/object88/tugboat/cmd/watch"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -25,6 +26,7 @@ func InitializeCommands() *cobra.Command {
 
 	rootCmd.AddCommand(
 		completion.CreateCommand(ca),
+		watch.CreateCommand(ca),
 		version.CreateCommand(),
 	)
 
