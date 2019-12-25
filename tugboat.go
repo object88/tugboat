@@ -13,8 +13,8 @@ var AppVersion = "unset"
 
 type Version struct{}
 
-// Churl returns the binary version
-func (Version) Churl() string {
+// AppVersion returns the binary version
+func (Version) AppVersion() string {
 	return AppVersion
 }
 
@@ -26,7 +26,7 @@ func (Version) Git() string {
 func (v Version) String() string {
 	var sb strings.Builder
 	sb.WriteString("Version:    ")
-	sb.WriteString(v.Churl())
+	sb.WriteString(v.AppVersion())
 	sb.WriteRune('\n')
 	sb.WriteString("Git commit: ")
 	sb.WriteString(v.Git())

@@ -17,7 +17,7 @@ const (
 // CreateOutputFlag adds the `--output` flag to the flagset
 func CreateOutputFlag(flgs *pflag.FlagSet) {
 	annotations := map[string][]string{
-		cobra.BashCompCustom: []string{"__churl_get_outputs"},
+		cobra.BashCompCustom: []string{"__tugboat_get_outputs"},
 	}
 
 	var def Output

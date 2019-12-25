@@ -13,7 +13,7 @@ import (
 )
 
 const bashCompletionFunc = `
-__churl_get_outputs()
+__tugboat_get_outputs()
 {
 	COMPREPLY=( "json", "json-compressed", "text" )
 }
