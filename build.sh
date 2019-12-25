@@ -49,7 +49,7 @@ if ! [ -z "$(git status --porcelain)" ]; then
 fi
 
 echo "Build version '$VERSION', git SHA '$GIT_COMMIT'"
-LDFLAGS_IMPORTS="-X github.com/object88/tugboat.GitCommit=${GIT_COMMIT} -X github.com/object88/tugboat.ChurlVersion=${VERSION}"
+LDFLAGS_IMPORTS="-X github.com/object88/tugboat.GitCommit=${GIT_COMMIT} -X github.com/object88/tugboat.AppVersion=${VERSION}"
 
 cd "$CWD"
 
@@ -137,6 +137,8 @@ fi
 # build executable(s)
 # method found here https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
 
+echo "Building..."
+
 DEFAULT_GOOS=$(uname | tr '[:upper:]' '[:lower:]')
 PLATFORMS=( "$DEFAULT_GOOS/amd64" )
 if [ "$BUILD_AND_RELEASE" == "true" ]; then
@@ -151,7 +153,7 @@ for PLATFORM in "${PLATFORMS[@]}"; do
   if [ $DEFAULT_GOOS == $GOOS ]; then
     export TEST_BINARY_NAME="$CWD/bin/$BINARY_NAME"
   fi
-  echo "building as $BINARY_NAME"
+  echo "Building as $BINARY_NAME"
 
   if [ $(uname) == "Darwin" ]; then
     # Cannot do a static compilation on Darwin.

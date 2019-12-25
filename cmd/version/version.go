@@ -52,7 +52,7 @@ func (c *command) Preexecute(cmd *cobra.Command, args []string) error {
 }
 
 func (c *command) Execute(cmd *cobra.Command, args []string) error {
-	var v churl.Version
+	var v tugboat.Version
 
 	switch c.output {
 	case flags.Text:
