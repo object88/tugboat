@@ -1,10 +1,10 @@
 package bash
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/object88/tugboat/internal/cmd/common"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +33,7 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 func (c *command) Execute(cmd *cobra.Command, args []string) error {
 	err := c.Root().GenBashCompletion(os.Stdout)
 	if err != nil {
-		return errors.Wrapf(err, "Internal error: failed to generate bash command completions")
+		return fmt.Errorf("internal error: failed to generate bash command completions: %w", err)
 	}
 	return nil
 }

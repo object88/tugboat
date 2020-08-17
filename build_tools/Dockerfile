@@ -24,12 +24,8 @@ RUN mkdir -p /home/appuser && \
 RUN mkdir -p /opt/appuser && \
   touch /opt/appuser/group && \
   touch /opt/appuser/passwd && \
-  touch /opt/appuser/subgid && \
-  touch /opt/appuser/subuid && \
   echo "appuser:x:1000:" >> /opt/appuser/group && \
-  echo "appuser:x:1000:1000::/home/appuser:" >> /opt/appuser/passwd && \
-  echo "appuser:1000:1" >> /opt/appuser/subgid && \
-  echo "appuser:1000:1" >> /opt/appuser/subuid
+  echo "appuser:x:1000:1000::/home/appuser:" >> /opt/appuser/passwd
 
 WORKDIR /go/src/github.com/object88/tugboat
 
@@ -37,4 +33,4 @@ COPY . .
 
 # Run the build.
 SHELL ["/bin/bash", "-c"]
-RUN ./build.sh --no-local-install ${TARGET//,/ }
+RUN ./build.sh ${TARGET//,/ }

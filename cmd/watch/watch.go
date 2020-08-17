@@ -8,7 +8,6 @@ import (
 
 	"github.com/object88/tugboat/internal/cmd/cliflags"
 	"github.com/object88/tugboat/internal/cmd/common"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/action"
@@ -67,13 +66,13 @@ func (c *command) Preexecute(cmd *cobra.Command, args []string) error {
 
 	config, err := c.cflags.ToRESTConfig()
 	if err != nil {
-		return errors.Wrapf(err, "Failed to get REST config")
+		return fmt.Errorf("failed to get REST config: %w", err)
 	}
 
 	// f := cmdutil.NewFactory(c.cflags)
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return errors.Wrapf(err, "Failed to get clientset")
+		return fmt.Errorf("failed to get clientset: %w", err)
 	}
 
 	client := clientset.CoreV1().RESTClient()
@@ -91,14 +90,12 @@ func (c *command) Preexecute(cmd *cobra.Command, args []string) error {
 	actionConfig := new(action.Configuration)
 	err = actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), os.Getenv("HELM_DRIVER"), c.Log.Infof)
 	if err != nil {
-		// debug("%+v", err)
-		// os.Exit(1)
-		return errors.Wrapf(err, "Failed to init actionConfig")
+		return fmt.Errorf("Failed to init actionConfig: %w", err)
 	}
 
 	release, err := action.NewGet(actionConfig).Run("foo")
 	if err != nil {
-		return errors.Wrapf(err, "Failed to get chart foo")
+		return fmt.Errorf("failed to get chart foo: %w", err)
 	}
 
 	// values, err := action.NewGetValues(actionConfig).Run("foo")
@@ -108,7 +105,7 @@ func (c *command) Preexecute(cmd *cobra.Command, args []string) error {
 
 	_, err = chartutil.ToRenderValues(release.Chart, release.Config, chartutil.ReleaseOptions{}, nil)
 	if err != nil {
-		return errors.Wrapf(err, "Failed to render values")
+		return fmt.Errorf("failed to render values: %w", err)
 	}
 	// vals.
 
@@ -118,7 +115,7 @@ func (c *command) Preexecute(cmd *cobra.Command, args []string) error {
 		dec := yaml.NewDecoder(bytes.NewReader(v.Data))
 		err := dec.Decode(y)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to decode '%s': %s", v.Name, v.Data)
+			return fmt.Errorf("Failed to decode '%s' from %s: %w", v.Name, v.Data, err)
 		}
 
 		fmt.Printf("\t%s (%d): %#v\n", v.Name, k, y)

@@ -1,9 +1,8 @@
 package cliflags
 
 import (
+	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Output represents the output formatting
@@ -55,7 +54,7 @@ func (o *Output) UnmarshalText(text []byte) error {
 	case yamlText:
 		*o = Yaml
 	default:
-		return errors.Errorf("Value '%s' is not a valid Output", text)
+		return fmt.Errorf("value '%s' is not a valid Output", text)
 	}
 	return nil
 }
