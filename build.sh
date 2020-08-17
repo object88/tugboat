@@ -49,7 +49,7 @@ if ! [ -z "$(git status --porcelain)" ]; then
 fi
 
 echo "Build version '$VERSION', git SHA '$GIT_COMMIT'"
-LDFLAGS_IMPORTS="-X github.com/object88/tugboat.GitCommit=${GIT_COMMIT} -X github.com/object88/tugboat.AppVersion=${VERSION}"
+LDFLAGS_IMPORTS="-X github.com/object88/tugboat/pkg/version.GitCommit=${GIT_COMMIT} -X github.com/object88/pkg/version.AppVersion=${VERSION}"
 
 cd "$CWD"
 
@@ -60,11 +60,14 @@ DO_TEST=${DO_TEST:-"true"}
 DO_VERIFY=${DO_VERIFY:-"true"}
 DO_VET=${DO_VET:-"true"}
 
+TARGETS=()
+
 while [[ $# -gt 0 ]]; do
   key="$1"
-  case $key in
+  case $KEY in
     --fast)
         DO_LOCAL_INSTALL="false"
+        DO_PACKAGE="false"
         DO_TEST="false"
         DO_VERIFY="false"
         DO_VET="false"
@@ -91,10 +94,16 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
     *)
-      shift
-      ;;
+        TARGETS+=($KEY)
+        shift
+        ;;
   esac
 done
+
+if [ ${#TARGETS[@]} -eq 0 ]; then
+  echo "No targets specified; building all apps."
+  TARGETS=( $(ls apps) )
+fi
 
 if [[ $DO_TEST == "true" ]]; then
   if ! [ -x $CWD/bin/mockgen ]; then
@@ -134,6 +143,16 @@ if [[ $DO_VET == "true" ]]; then
   echo ""
 fi
 
+# test executables and binaries
+if [[ $DO_TEST == "true" ]]; then
+  export TEST_SHA=${GIT_COMMIT}
+  export TEST_VERSION=${VERSION}
+
+  echo "Testing with $TEST_BINARY_NAME"
+  time go test ./... -count=1 -tags test_integration
+  echo ""
+fi
+
 # build executable(s)
 # method found here https://www.digitalocean.com/community/tutorials/how-to-build-go-executables-for-multiple-platforms-on-ubuntu-16-04
 
@@ -145,45 +164,47 @@ if [ "$BUILD_AND_RELEASE" == "true" ]; then
   PLATFORMS=( "linux/amd64" "darwin/amd64" )
 fi
 
-# build executable for each platform...
-for PLATFORM in "${PLATFORMS[@]}"; do
-  export GOOS=$(cut -d'/' -f1 <<< $PLATFORM)
-  export GOARCH=$(cut -d'/' -f2 <<< $PLATFORM)
-  BINARY_NAME="tugboat-${GOOS}-${GOARCH}"
-  if [ $DEFAULT_GOOS == $GOOS ]; then
-    export TEST_BINARY_NAME="$CWD/bin/$BINARY_NAME"
-  fi
-  echo "Building as $BINARY_NAME"
-
-  if [ $(uname) == "Darwin" ]; then
-    # Cannot do a static compilation on Darwin.
-    time go build -o ./bin/$BINARY_NAME -ldflags "-s -w $LDFLAGS_IMPORTS" ./main/main.go
-  else
-    time go build -o ./bin/$BINARY_NAME -tags "netgo" -ldflags "-extldflags \"-static\" -s -w $LDFLAGS_IMPORTS" ./main/main.go
+for TARGET in "${TARGETS[@]}"; do
+  if [ -z "apps/$TARGET" ]; then
+    echo "Target '$TARGET' could not be found in apps directory; skipping."
+    continue
   fi
 
-  if [ $DO_PACKAGE == "true" ]; then
-    zip -j ./bin/$BINARY_NAME.zip ./bin/$BINARY_NAME
+  if ! [ -f "apps/$TARGET/main/main.go" ]; then 
+    echo "Target '$TARGET' does not have main/main.go; skipping."
+    continue
   fi
-  echo ""
+
+  # build executable for each platform...
+  for PLATFORM in "${PLATFORMS[@]}"; do
+    export GOOS=$(cut -d'/' -f1 <<< $PLATFORM)
+    export GOARCH=$(cut -d'/' -f2 <<< $PLATFORM)
+    BINARY_NAME="$TARGET-${GOOS}-${GOARCH}"
+    if [ $DEFAULT_GOOS == $GOOS ]; then
+      export TEST_BINARY_NAME="$CWD/bin/$BINARY_NAME"
+    fi
+    echo "Building as $BINARY_NAME"
+
+    if [ $(uname) == "Darwin" ]; then
+      # Cannot do a static compilation on Darwin.
+      time go build -o ./bin/$BINARY_NAME -ldflags "-s -w $LDFLAGS_IMPORTS" ./apps/$TARGET/main/main.go
+    else
+      time go build -o ./bin/$BINARY_NAME -tags "netgo" -ldflags "-extldflags \"-static\" -s -w $LDFLAGS_IMPORTS" ./apps/$TARGET/main/main.go
+    fi
+
+    if [ $DO_PACKAGE == "true" ]; then
+      zip -j ./bin/$BINARY_NAME.zip ./bin/$BINARY_NAME
+    fi
+    echo ""
+  done
+
+  if [ $DO_LOCAL_INSTALL == "true" ]; then
+    echo "Copying to /usr/local/bin and installing bash/zsh completion"
+    cp $TEST_BINARY_NAME /usr/local/bin/tugboat
+    $TEST_BINARY_NAME completion bash > /usr/local/etc/bash_completion.d/tugboat
+    $TEST_BINARY_NAME completion zsh > /usr/local/share/zsh/site-functions/_tugboat
+    echo ""
+  fi
 done
-
-# test executables and binaries
-if [[ $DO_TEST == "true" ]]; then
-  export TEST_SHA=${GIT_COMMIT}
-  export TEST_VERSION=${VERSION}
-
-  echo "Testing with $TEST_BINARY_NAME"
-  time go test ./... -count=1 -tags test_integration
-  echo ""
-fi
-
-if [ $DO_LOCAL_INSTALL == "true" ]; then
-  echo "Copying to /usr/local/bin and installing bash/zsh completion"
-  cp $TEST_BINARY_NAME /usr/local/bin/tugboat
-  $TEST_BINARY_NAME completion bash > /usr/local/etc/bash_completion.d/tugboat
-  $TEST_BINARY_NAME completion zsh > /usr/local/share/zsh/site-functions/_tugboat
-  echo ""
-fi
 
 echo "Done"

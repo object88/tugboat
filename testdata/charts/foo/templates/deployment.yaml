@@ -1,18 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: {{ .Release.Name }}-nginx-deployment
   labels:
     app: nginx
+    release: {{ .Release.Name }}
 spec:
   replicas: 3
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: nginx
+      release: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app: nginx
+        release: {{ .Release.Name }}
     spec:
       containers:
       - name: nginx

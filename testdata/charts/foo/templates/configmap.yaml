@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-{{ .Values.env }}-configmap
+  namespace: quux
+  labels:
+    app: nginx
+    release: {{ .Release.Name }}
+data:
+  deployed: "true"
