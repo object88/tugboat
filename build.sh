@@ -24,9 +24,9 @@ check() {
 
 check git
 check go
-check helm
+# check helm
 check jq
-check kubectl
+# check kubectl
 check zip
 
 if ! [ ${#MISSING[@]} -eq 0 ]; then
@@ -200,9 +200,9 @@ for TARGET in "${TARGETS[@]}"; do
 
   if [ $DO_LOCAL_INSTALL == "true" ]; then
     echo "Copying to /usr/local/bin and installing bash/zsh completion"
-    cp $TEST_BINARY_NAME /usr/local/bin/tugboat
-    $TEST_BINARY_NAME completion bash > /usr/local/etc/bash_completion.d/tugboat
-    $TEST_BINARY_NAME completion zsh > /usr/local/share/zsh/site-functions/_tugboat
+    cp $TEST_BINARY_NAME /usr/local/bin/$TARGET
+    $TEST_BINARY_NAME completion bash > /usr/local/etc/bash_completion.d/$TARGET
+    $TEST_BINARY_NAME completion zsh > /usr/local/share/zsh/site-functions/_$TARGET
     echo ""
   fi
 done

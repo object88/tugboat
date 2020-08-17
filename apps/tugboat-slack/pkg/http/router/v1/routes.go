@@ -1,0 +1,76 @@
+package v1
+
+import (
+	"net/http"
+
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
+	sslack "github.com/object88/tugboat/apps/tugboat-slack/pkg/slack"
+	"github.com/object88/tugboat/pkg/http/router/route"
+	"github.com/object88/tugboat/pkg/logging"
+	"github.com/sirupsen/logrus"
+)
+
+func Defaults(logger *logrus.Logger, bot *sslack.Bot) []*route.Route {
+	return []*route.Route{
+		{
+			Path:       "/v1/api",
+			Middleware: []mux.MiddlewareFunc{configureLoggingMiddleware(logger)},
+			Subroutes: []*route.Route{
+				{
+					Path:    "/commands",
+					Handler: configureHandleCommand(bot),
+					Methods: []string{http.MethodPost},
+				},
+				{
+					Path:    "/events",
+					Handler: configureHandleEvents(bot),
+					Methods: []string{http.MethodPost},
+				},
+				{
+					Path:    "/interactive",
+					Handler: configureHandleInteractive(bot),
+					Methods: []string{http.MethodPost},
+				},
+			},
+		},
+	}
+}
+
+func configureLoggingMiddleware(logger *logrus.Logger) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		lch := LogContextHandler{
+			logger: logger,
+			next:   next,
+		}
+		return handlers.LoggingHandler(logger.Out, &lch)
+	}
+}
+
+func configureHandleCommand(bot *sslack.Bot) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bot.ProcessSlashCommand(w, r)
+	}
+}
+
+func configureHandleEvents(bot *sslack.Bot) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bot.ProcessEventCommand(w, r)
+	}
+}
+
+func configureHandleInteractive(bot *sslack.Bot) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		bot.ProcessInteractiveCommand(w, r)
+	}
+}
+
+type LogContextHandler struct {
+	logger *logrus.Logger
+	next   http.Handler
+}
+
+func (lch *LogContextHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	creq := req.WithContext(logging.ToContext(req.Context(), lch.logger))
+	lch.next.ServeHTTP(w, creq)
+}

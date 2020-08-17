@@ -11,4 +11,5 @@ package tools
 import (
 	// The go-bindata program is used in the prebuild step for shipyard.
 	_ "github.com/golang/mock/mockgen"
+	_ "k8s.io/code-generator"
 )
