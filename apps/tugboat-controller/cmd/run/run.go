@@ -20,6 +20,7 @@ type command struct {
 	w watchers.Watcher
 }
 
+// CreateCommand returns the `run` Command
 func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 	var c command
 	c = command{

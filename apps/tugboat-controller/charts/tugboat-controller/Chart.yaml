@@ -1,0 +1,4 @@
+apiVersion: v1
+description: tugboat-controller is a CR controller
+name: tugboat-controller
+version: 0.0.0

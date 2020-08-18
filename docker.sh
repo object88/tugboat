@@ -75,16 +75,16 @@ for D in ${TARGET[@]}; do
 
       echo ""
       echo "Building targetted docker image for '$D' using '$DOCKER_FILENAME' to build '$DOCKER_IMAGENAME'..."
-      time docker build -t "docker.provdig.com/$DOCKER_IMAGENAME:latest" -f apps/$D/$DOCKER_FILENAME .
-      docker tag "docker.provdig.com/$DOCKER_IMAGENAME:latest" "docker.provdig.com/$DOCKER_IMAGENAME:$UNIQUE_TAG"
+      time docker build -t "object88/$DOCKER_IMAGENAME:latest" -f apps/$D/$DOCKER_FILENAME .
+      docker tag "object88/$DOCKER_IMAGENAME:latest" "object88/$DOCKER_IMAGENAME:$UNIQUE_TAG"
       DOCKER_IMAGES+=("$DOCKER_IMAGENAME:$UNIQUE_TAG")
     done
   elif [ -f "./apps/$D/Dockerfile" ]; then
-    DOCKER_IMAGENAME="devex-$D"
+    DOCKER_IMAGENAME="$D"
     echo ""
     echo "Building docker image for '$D'..."
-    time docker build -t "docker.provdig.com/$DOCKER_IMAGENAME:latest" -f apps/$D/Dockerfile .
-    docker tag "docker.provdig.com/$DOCKER_IMAGENAME:latest" "docker.provdig.com/$DOCKER_IMAGENAME:$UNIQUE_TAG"
+    time docker build -t "object88/$DOCKER_IMAGENAME:latest" -f apps/$D/Dockerfile .
+    docker tag "object88/$DOCKER_IMAGENAME:latest" "object88/$DOCKER_IMAGENAME:$UNIQUE_TAG"
     DOCKER_IMAGES+=("$DOCKER_IMAGENAME:$UNIQUE_TAG")
   fi
 done
@@ -92,8 +92,8 @@ done
 if [[ $DO_PUSH == "true" ]]; then
   echo "Pushing build images..."
   for I in "${DOCKER_IMAGES[@]}"; do
-    echo "Pushing docker image 'docker.provdig.com/$I'"
-    time docker push "docker.provdig.com/$I"
+    echo "Pushing docker image 'object88/$I'"
+    time docker push "object88/$I"
   done
   echo "Pushed images."
 fi
