@@ -16,6 +16,9 @@ type CommonArgs struct {
 }
 
 func NewCommonArgs() *CommonArgs {
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.SetEnvPrefix("TUGBOAT")
+
 	return &CommonArgs{
 		Log:     logrus.New(),
 		FlagMgr: cliflags.New(),
@@ -23,12 +26,10 @@ func NewCommonArgs() *CommonArgs {
 }
 
 func (ca *CommonArgs) Setup(flags *pflag.FlagSet) {
+	ca.FlagMgr.ConfigureVerboseFlag(flags)
 }
 
 func (ca *CommonArgs) Evaluate() error {
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	viper.SetEnvPrefix("TUGBOAT")
-
 	if ca.FlagMgr.Verbose() {
 		ca.Log.Level = logrus.DebugLevel
 	}

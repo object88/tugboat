@@ -6,6 +6,9 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+
+	multierror "github.com/hashicorp/go-multierror"
+	"github.com/sirupsen/logrus"
 )
 
 // Blocker is a long-running func that can be canceled with the provided
@@ -44,4 +47,47 @@ func Block(f Blocker) error {
 	<-done
 
 	return finalerr
+}
+
+func Multiblock(log *logrus.Logger, fs ...Blocker) error {
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	var wg sync.WaitGroup
+	wg.Add(len(fs))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		// Cancel any running context.
+		cancel()
+
+		// And wait for the below go funcs to complete.
+		wg.Wait()
+	}()
+
+	var errs *multierror.Error
+	for k, f := range fs {
+		go func(i int, f Blocker) {
+			log.Infof("Starting Blocker func (%d)...", i)
+			defer wg.Done()
+
+			err := f(ctx)
+			if err != nil {
+				errs = multierror.Append(errs, err)
+				log.Infof("Exited Blocker func (%d) without err: %s", i, err.Error())
+			} else {
+				log.Infof("Exited Blocker func (%d) without error", i)
+			}
+
+			// Closing the channel will allow the wait to finish, and we no longer need
+			// to wait on an `os.Signal`.
+			close(done)
+		}(k, f)
+	}
+
+	// Wait for an signal to exit
+	log.Infof("Waiting on any Blocker func to exit")
+	<-done
+
+	return errs.ErrorOrNil()
 }

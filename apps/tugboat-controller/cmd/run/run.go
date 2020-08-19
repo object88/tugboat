@@ -6,6 +6,9 @@ import (
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
+	"github.com/object88/tugboat/pkg/http"
+	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
+	"github.com/object88/tugboat/pkg/http/router"
 	"github.com/object88/tugboat/pkg/k8s/cliflags"
 	"github.com/object88/tugboat/pkg/k8s/watchers"
 	"github.com/spf13/cobra"
@@ -15,7 +18,8 @@ type command struct {
 	cobra.Command
 	*common.CommonArgs
 
-	k8sFlagMgr *cliflags.FlagManager
+	httpFlagMgr *httpcliflags.FlagManager
+	k8sFlagMgr  *cliflags.FlagManager
 
 	w watchers.Watcher
 }
@@ -35,12 +39,14 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 				return c.execute(cmd, args)
 			},
 		},
-		CommonArgs: ca,
-		k8sFlagMgr: cliflags.New(),
+		CommonArgs:  ca,
+		httpFlagMgr: httpcliflags.New(),
+		k8sFlagMgr:  cliflags.New(),
 	}
 
 	flags := c.Flags()
 
+	c.httpFlagMgr.ConfigurePortFlag(flags)
 	c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
 
 	return common.TraverseRunHooks(&c.Command)
@@ -62,9 +68,21 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 }
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
-	wm := watchers.New()
+	f0 := func(ctx context.Context) error {
+		m, err := router.New(c.Log).Route(router.Defaults())
+		if err != nil {
+			return err
+		}
 
-	return common.Block(func(ctx context.Context) error {
-		return wm.Run(ctx, c.w)
-	})
+		http.New(c.Log, m, c.httpFlagMgr.Port()).Serve(ctx)
+		return nil
+	}
+
+	f1 := func(ctx context.Context) error {
+		return watchers.New().Run(ctx, c.w)
+	}
+
+	err := common.Multiblock(c.Log, f0, f1)
+
+	return err
 }

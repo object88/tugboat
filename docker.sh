@@ -18,6 +18,12 @@ DO_VET=${DO_VET:-"true"}
 while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
+    --fast)
+      DO_TEST="false"
+      DO_VERIFY="false"
+      DO_VET="false"
+      shift
+      ;;
     --push)
       DO_PUSH="true"
       shift
