@@ -63,7 +63,7 @@ DO_VET=${DO_VET:-"true"}
 TARGETS=()
 
 while [[ $# -gt 0 ]]; do
-  key="$1"
+  KEY="$1"
   case $KEY in
     --fast)
         DO_LOCAL_INSTALL="false"
