@@ -21,7 +21,7 @@ type Launch struct {
 type LaunchSpec struct {
 	Chart   string          `json:"chart"`
 	Version *semver.Version `json:"version"`
-	Values  string          `json:"encoding,omitempty"`
+	Values  string          `json:"values,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

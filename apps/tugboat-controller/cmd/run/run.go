@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
+	helmcliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cliflags"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/router"
-	"github.com/object88/tugboat/pkg/k8s/cliflags"
 	"github.com/object88/tugboat/pkg/k8s/watchers"
 	"github.com/spf13/cobra"
 )
@@ -18,8 +18,9 @@ type command struct {
 	cobra.Command
 	*common.CommonArgs
 
+	helmFlagMgr *helmcliflags.FlagManager
 	httpFlagMgr *httpcliflags.FlagManager
-	k8sFlagMgr  *cliflags.FlagManager
+	// k8sFlagMgr  *cliflags.FlagManager
 
 	w watchers.Watcher
 }
@@ -40,20 +41,22 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 			},
 		},
 		CommonArgs:  ca,
+		helmFlagMgr: helmcliflags.New(),
 		httpFlagMgr: httpcliflags.New(),
-		k8sFlagMgr:  cliflags.New(),
+		// k8sFlagMgr:  cliflags.New(),
 	}
 
 	flags := c.Flags()
 
+	c.helmFlagMgr.ConfigureFlags(flags)
 	c.httpFlagMgr.ConfigurePortFlag(flags)
-	c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
+	// c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
 
 	return common.TraverseRunHooks(&c.Command)
 }
 
 func (c *command) preexecute(cmd *cobra.Command, args []string) error {
-	conf, err := c.k8sFlagMgr.KubernetesConfig().ToRESTConfig()
+	conf, err := c.helmFlagMgr.Client().ToRESTConfig()
 	if err != nil {
 		return err
 	}

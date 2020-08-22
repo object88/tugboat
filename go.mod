@@ -23,7 +23,6 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f // indirect
 	github.com/hashicorp/go-multierror v1.1.0
-	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/sirupsen/logrus v1.6.0
 	github.com/slack-go/slack v0.6.6
@@ -44,6 +43,7 @@ require (
 	k8s.io/client-go v0.18.8
 	k8s.io/code-generator v0.18.8
 	rsc.io/letsencrypt v0.0.3 // indirect
+	sigs.k8s.io/controller-runtime v0.6.2
 // sigs.k8s.io/structured-merge-diff v1.0.2 // indirect
 )
 
