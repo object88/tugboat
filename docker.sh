@@ -5,7 +5,7 @@ cd $(dirname "$0")
 
 TARGET=()
 
-export UNIQUE_TAG=${UNIQUE_TAG:-$(git describe --tags)-$(git rev-parse --short HEAD)}
+export TAG=${TAG:-$(git describe --tags)-$(git rev-parse --short HEAD)}
 export PATH=$PWD/bin/:$PATH
 
 # Set defaults, allow env val to override
@@ -82,16 +82,16 @@ for D in ${TARGET[@]}; do
       echo ""
       echo "Building targetted docker image for '$D' using '$DOCKER_FILENAME' to build '$DOCKER_IMAGENAME'..."
       time docker build -t "object88/$DOCKER_IMAGENAME:latest" -f apps/$D/$DOCKER_FILENAME .
-      docker tag "object88/$DOCKER_IMAGENAME:latest" "object88/$DOCKER_IMAGENAME:$UNIQUE_TAG"
-      DOCKER_IMAGES+=("$DOCKER_IMAGENAME:$UNIQUE_TAG")
+      docker tag "object88/$DOCKER_IMAGENAME:latest" "object88/$DOCKER_IMAGENAME:$TAG"
+      DOCKER_IMAGES+=("$DOCKER_IMAGENAME:$TAG")
     done
   elif [ -f "./apps/$D/Dockerfile" ]; then
     DOCKER_IMAGENAME="$D"
     echo ""
     echo "Building docker image for '$D'..."
     time docker build -t "object88/$DOCKER_IMAGENAME:latest" -f apps/$D/Dockerfile .
-    docker tag "object88/$DOCKER_IMAGENAME:latest" "object88/$DOCKER_IMAGENAME:$UNIQUE_TAG"
-    DOCKER_IMAGES+=("$DOCKER_IMAGENAME:$UNIQUE_TAG")
+    docker tag "object88/$DOCKER_IMAGENAME:latest" "object88/$DOCKER_IMAGENAME:$TAG"
+    DOCKER_IMAGES+=("$DOCKER_IMAGENAME:$TAG")
   fi
 done
 

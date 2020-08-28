@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/gorilla/mux"
 	"github.com/object88/tugboat/pkg/http/router/route"
-	"github.com/sirupsen/logrus"
 )
 
 type Router struct {
 	m      *mux.Router
-	logger *logrus.Logger
+	logger logr.Logger
 }
 
 // New creates a new Router
-func New(logger *logrus.Logger) *Router {
+func New(logger logr.Logger) *Router {
 	rtr := &Router{
 		m:      mux.NewRouter(),
 		logger: logger,
@@ -34,29 +34,23 @@ func (rtr *Router) Route(routes []*route.Route) (*mux.Router, error) {
 }
 
 func (rtr *Router) reportRoutes() {
-	rtr.m.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
-		rtr.logger.Infof("Name: %s\n", route.GetName())
+	report := func(r *mux.Route) {
+		pathTemplate, _ := r.GetPathTemplate()
+		pathRegexp, _ := r.GetPathRegexp()
+		queriesTemplates, _ := r.GetQueriesTemplates()
+		queriesRegexps, _ := r.GetQueriesRegexp()
 
-		pathTemplate, err := route.GetPathTemplate()
-		if err == nil {
-			rtr.logger.Infof("Route: %s\n", pathTemplate)
-		}
-		pathRegexp, err := route.GetPathRegexp()
-		if err == nil {
-			rtr.logger.Infof("Path regexp: %s\n", pathRegexp)
-		}
-		queriesTemplates, err := route.GetQueriesTemplates()
-		if err == nil {
-			rtr.logger.Infof("Queries templates: %s\n", strings.Join(queriesTemplates, ","))
-		}
-		queriesRegexps, err := route.GetQueriesRegexp()
-		if err == nil {
-			rtr.logger.Infof("Queries regexps: %s\n", strings.Join(queriesRegexps, ","))
-		}
-		if route.GetHandler() != nil {
-			rtr.logger.Infof("Has router func\n")
-		}
-		rtr.logger.Infof("\n")
+		rtr.logger.Info("Route",
+			"name", r.GetName(),
+			"path", pathTemplate,
+			"path-regexp", pathRegexp,
+			"queries-templates", strings.Join(queriesTemplates, ","),
+			"queries-regexps", strings.Join(queriesRegexps, ","),
+			"has-handler", r.GetHandler() != nil)
+	}
+
+	rtr.m.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		report(route)
 		return nil
 	})
 }

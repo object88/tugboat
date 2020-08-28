@@ -7,13 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-logr/zapr"
 	"github.com/object88/tugboat/pkg/http/router/route"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 func Test_Router_Routes(t *testing.T) {
-	logger := logrus.New()
-
+	zapLog, _ := zap.NewDevelopment()
+	logger := zapr.NewLogger(zapLog)
 	rtr := New(logger)
 
 	routes := []*route.Route{
@@ -143,7 +144,8 @@ func Test_Router_Subroute(t *testing.T) {
 		},
 	}
 
-	logger := logrus.New()
+	zapLog, _ := zap.NewDevelopment()
+	logger := zapr.NewLogger(zapLog)
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {

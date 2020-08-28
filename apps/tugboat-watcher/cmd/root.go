@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"strings"
 	"time"
 
 	"github.com/object88/tugboat/internal/cmd/common"
@@ -40,20 +39,7 @@ func createRootCommand() (*common.CommonArgs, *cobra.Command) {
 			cmd.HelpFunc()(cmd, args)
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, _ []string) error {
-			duration := time.Since(start)
-
-			segments := []string{}
-			var f func(c1 *cobra.Command)
-			f = func(c1 *cobra.Command) {
-				parent := c1.Parent()
-				if parent != nil {
-					f(parent)
-				}
-				segments = append(segments, c1.Name())
-			}
-			f(cmd)
-
-			ca.Log.Infof("Executed command \"%s\" in %s", strings.Join(segments, " "), duration)
+			ca.ReportDuration(cmd, start)
 			return nil
 		},
 	}

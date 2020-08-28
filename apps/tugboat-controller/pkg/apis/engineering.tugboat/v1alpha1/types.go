@@ -19,9 +19,10 @@ type Launch struct {
 
 // LaunchSpec is the spec for a Launch resource
 type LaunchSpec struct {
-	Chart   string          `json:"chart"`
-	Version *semver.Version `json:"version"`
-	Values  string          `json:"values,omitempty"`
+	Repository string          `json:"repository"`
+	Chart      string          `json:"chart"`
+	Version    *semver.Version `json:"version"`
+	Values     string          `json:"values,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

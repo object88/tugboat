@@ -3,15 +3,15 @@ package v1
 import (
 	"net/http"
 
+	"github.com/go-logr/logr"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	sslack "github.com/object88/tugboat/apps/tugboat-slack/pkg/slack"
 	"github.com/object88/tugboat/pkg/http/router/route"
 	"github.com/object88/tugboat/pkg/logging"
-	"github.com/sirupsen/logrus"
 )
 
-func Defaults(logger *logrus.Logger, bot *sslack.Bot) []*route.Route {
+func Defaults(logger logr.Logger, bot *sslack.Bot) []*route.Route {
 	return []*route.Route{
 		{
 			Path:       "/v1/api",
@@ -37,13 +37,13 @@ func Defaults(logger *logrus.Logger, bot *sslack.Bot) []*route.Route {
 	}
 }
 
-func configureLoggingMiddleware(logger *logrus.Logger) mux.MiddlewareFunc {
+func configureLoggingMiddleware(logger logr.Logger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		lch := LogContextHandler{
 			logger: logger,
 			next:   next,
 		}
-		return handlers.LoggingHandler(logger.Out, &lch)
+		return handlers.LoggingHandler((&logging.Writer{Log: logger}).Out(), &lch)
 	}
 }
 
@@ -66,7 +66,7 @@ func configureHandleInteractive(bot *sslack.Bot) http.HandlerFunc {
 }
 
 type LogContextHandler struct {
-	logger *logrus.Logger
+	logger logr.Logger
 	next   http.Handler
 }
 

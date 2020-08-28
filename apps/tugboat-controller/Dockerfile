@@ -6,8 +6,8 @@ FROM scratch AS RELEASE
 USER appuser
 
 COPY --from=BUILD "/etc/ssl/certs/ca-certificates.crt" "/etc/ssl/certs/ca-certificates.crt"
-COPY --from=BUILD "/opt/appuser/passwd" "/etc/passwd"
-COPY --from=BUILD "/opt/appuser/group" "/etc/group"
+COPY --from=BUILD "/opt/appuser/*" "/etc/"
+COPY --chown=appuser:appuser --from=BUILD   "/home/appuser" "/home/appuser"
 
 CMD ["/usr/local/bin/tugboat-controller", "run", "--verbose"]
 

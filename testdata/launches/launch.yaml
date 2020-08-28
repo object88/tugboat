@@ -3,6 +3,7 @@ kind: Launch
 metadata:
   name: launch-1
 spec:
+  repository: "https://charts.bitnami.com/bitnami"
   chart: "bitnami/redis"
   version: "10.7.16"
-  encoding: ""
+  values: ""

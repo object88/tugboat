@@ -6,15 +6,15 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 )
 
 type Server struct {
-	logger *logrus.Logger
+	logger logr.Logger
 	srv    *http.Server
 }
 
-func New(logger *logrus.Logger, routes http.Handler, port int) *Server {
+func New(logger logr.Logger, routes http.Handler, port int) *Server {
 	addr := fmt.Sprintf(":%d", port)
 	return &Server{
 		logger: logger,
@@ -28,11 +28,11 @@ func New(logger *logrus.Logger, routes http.Handler, port int) *Server {
 func (s *Server) Serve(ctx context.Context) {
 	go func() {
 		if err := s.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			s.logger.Errorf("listen: %s\n", err)
+			s.logger.Error(err, "listen completed")
 		}
 	}()
 
-	s.logger.Infof("Server Started")
+	s.logger.Info("Server Started")
 
 	// Wait for the context to wrap up.
 	select {
@@ -43,7 +43,7 @@ func (s *Server) Serve(ctx context.Context) {
 		}()
 
 		if err := s.srv.Shutdown(timeoutCtx); err != nil {
-			s.logger.Errorf("Server Shutdown Failed:%+v", err)
+			s.logger.Error(err, "Server shutdown failed")
 		}
 	}
 }

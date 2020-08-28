@@ -6,14 +6,8 @@ rules:
   - apiGroups: ["tugboat.engineering"]
     resources: ["launches"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs:
-      - create
-      - delete
-      - get
-      - list
-      - patch
-      - update
-      - watch
-    
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+    # verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      

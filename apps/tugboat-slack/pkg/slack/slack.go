@@ -7,15 +7,15 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-slack/pkg/slack/config"
 	"github.com/object88/tugboat/pkg/logging"
-	"github.com/sirupsen/logrus"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
 
 type Bot struct {
-	Logger *logrus.Logger
+	Logger logr.Logger
 
 	api *slack.Client
 	cfg *config.Config
@@ -48,7 +48,7 @@ func (b *Bot) ProcessEventCommand(w http.ResponseWriter, r *http.Request) {
 	logger := logging.FromContext(r.Context())
 	sv, err := b.PreprocessSecurity(r)
 	if err != nil {
-		logger.Infof("internal error: failed to set up to verify secrets: %s", err.Error())
+		logger.Error(err, "internal error: failed to set up to verify secrets")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -63,7 +63,7 @@ func (b *Bot) ProcessEventCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := b.ProcessSecurity(sv); err != nil {
-		logger.Infof("failed to verify secrets: %s", err.Error())
+		logger.Error(err, "failed to verify secrets")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -71,7 +71,7 @@ func (b *Bot) ProcessEventCommand(w http.ResponseWriter, r *http.Request) {
 	if eventsAPIEvent.Type == slackevents.URLVerification {
 		r, ok := eventsAPIEvent.Data.(*slackevents.EventsAPIURLVerificationEvent)
 		if !ok {
-			logger.Infof("internal error: event type is URLVerification, but data is wrong type")
+			logger.Error(nil, "internal error: event type is URLVerification, but data is wrong type")
 			w.WriteHeader(http.StatusInternalServerError)
 		} else {
 			w.Header().Set("Content-Type", "text")

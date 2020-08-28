@@ -2,11 +2,12 @@ package run
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/launch"
 	helmcliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cliflags"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
@@ -15,6 +16,8 @@ import (
 	"github.com/object88/tugboat/pkg/http/router"
 	"github.com/object88/tugboat/pkg/k8s/watchers"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -99,33 +102,44 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 		// Also note that you may face performance issues when using this with a high number of namespaces.
 		// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
 		if strings.Contains(namespace, ",") {
+			c.Log.Info(fmt.Sprintf("Using multi-namespace: %s", namespace))
 			options.Namespace = ""
 			options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
 		}
 
-		// Create a new manager to provide shared dependencies and start components
-		cfg, err := c.helmFlagMgr.Client().ToRESTConfig()
-		if err != nil {
-			return err
-		}
-		mgr, err := manager.New(cfg, options)
-		if err != nil {
+		scheme := runtime.NewScheme()
+		if err := apis.AddToScheme(scheme); err != nil {
 			return err
 		}
 
 		c.Log.Info("Registering Components.")
 
-		// Setup Scheme for all resources
-		if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		cfg, err := c.helmFlagMgr.Client().ToRESTConfig()
+		if err != nil {
+			return err
+		}
+		mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+			Scheme: scheme,
+			// MetricsBindAddress: metricsAddr,
+			Port: 9443,
+			// LeaderElection:     enableLeaderElection,
+			// LeaderElectionID:   "e486e3e8.my.domain",
+		})
+		if err != nil {
 			return err
 		}
 
-		// Setup all Controllers
-		if err := controller.AddToManager(mgr); err != nil {
+		if err = (&launch.ReconcileLaunch{
+			Client:       mgr.GetClient(),
+			HelmSettings: c.helmFlagMgr.EnvSettings(),
+			Log:          c.Log.WithName("controllers").WithName("Launch"),
+			Scheme:       scheme,
+		}).SetupWithManager(mgr); err != nil {
 			return err
 		}
 
 		// And now, run.  And wait.
+		c.Log.Info("Starting manager")
 		return mgr.Start(ctx.Done())
 	}
 

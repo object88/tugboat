@@ -8,6 +8,7 @@ import (
 
 	"github.com/object88/tugboat/internal/cmd/cliflags"
 	"github.com/object88/tugboat/internal/cmd/common"
+	"github.com/object88/tugboat/pkg/logging"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/action"
@@ -88,7 +89,7 @@ func (c *command) Preexecute(cmd *cobra.Command, args []string) error {
 	settings := cli.New()
 
 	actionConfig := new(action.Configuration)
-	err = actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), os.Getenv("HELM_DRIVER"), c.Log.Infof)
+	err = actionConfig.Init(settings.RESTClientGetter(), settings.Namespace(), os.Getenv("HELM_DRIVER"), (&logging.Adapter{Log: c.Log}).Logf)
 	if err != nil {
 		return fmt.Errorf("Failed to init actionConfig: %w", err)
 	}

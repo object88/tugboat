@@ -3,7 +3,7 @@ package logging
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 )
 
 type loggerKey string
@@ -12,14 +12,14 @@ const (
 	logger = loggerKey("logger")
 )
 
-func FromContext(ctx context.Context) *logrus.Logger {
-	x, ok := ctx.Value(logger).(*logrus.Logger)
+func FromContext(ctx context.Context) logr.Logger {
+	x, ok := ctx.Value(logger).(logr.Logger)
 	if !ok {
 		return nil
 	}
 	return x
 }
 
-func ToContext(ctx context.Context, log *logrus.Logger) context.Context {
+func ToContext(ctx context.Context, log logr.Logger) context.Context {
 	return context.WithValue(ctx, logger, log)
 }
