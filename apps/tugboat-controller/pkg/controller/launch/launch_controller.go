@@ -49,87 +49,46 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 
 	// Fetch the Launch instance
 	instance := &launchv1alpha1.Launch{}
+	name := instance.Name
+	h := helm.New(reqLogger, r.HelmSettings)
+
 	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			reqLogger.Info("Did not find launch")
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		reqLogger.Error(err, "Error requesting launch")
-		return reconcile.Result{}, err
-	}
-
-	name := instance.Name
-	l := instance.Spec
-
-	h := helm.New(r.Log, r.HelmSettings)
-	if ok, err := h.IsDeployed(name); err != nil {
-		reqLogger.Error(err, "Check for deployment failed")
-		return reconcile.Result{}, err
-	} else if !ok {
-		if err := h.Deploy(name, &l); err != nil {
-			reqLogger.Error(err, "Install failed")
+		if !errors.IsNotFound(err) {
+			// Error reading the object - requeue the request.
+			reqLogger.Error(err, "Error requesting launch")
 			return reconcile.Result{}, err
+		}
+		// Request object not found, could have been deleted after reconcile request.
+		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+		// Return and don't requeue
+		reqLogger.Info("Did not find launch")
+		if ok, err := h.IsDeployed(name); err != nil {
+			reqLogger.Error(err, "Check for deployment failed")
+			return reconcile.Result{}, err
+		} else if ok {
+			// The chart is still deployed; remove it now.
+			if err := h.Delete(name); err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 	} else {
-		if err := h.Update(name, &l); err != nil {
-			reqLogger.Error(err, "Update failed")
+		if ok, err := h.IsDeployed(name); err != nil {
+			reqLogger.Error(err, "Check for deployment failed")
 			return reconcile.Result{}, err
+		} else if ok {
+			if err := h.Update(name, &instance.Spec); err != nil {
+				reqLogger.Error(err, "Update failed")
+				return reconcile.Result{}, err
+			}
+		} else {
+			if err := h.Deploy(name, &instance.Spec); err != nil {
+				reqLogger.Error(err, "Install failed")
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
-	// // Define a new Pod object
-	// pod := newPodForCR(instance)
-
-	// // Set Launch instance as the owner and controller
-	// if err := controllerutil.SetControllerReference(instance, pod, r.Scheme); err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-
-	// // Check if this Pod already exists
-	// found := &corev1.Pod{}
-	// err = r.Client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	// if err != nil && errors.IsNotFound(err) {
-	// 	reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-	// 	err = r.Client.Create(context.TODO(), pod)
-	// 	if err != nil {
-	// 		return reconcile.Result{}, err
-	// 	}
-
-	// 	// Pod created successfully - don't requeue
-	// 	return reconcile.Result{}, nil
-	// } else if err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-
-	// // Pod already exists - don't requeue
-	// reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// Reconciliation complete.
 	return reconcile.Result{}, nil
 }
-
-// // newPodForCR returns a busybox pod with the same name/namespace as the cr
-// func newPodForCR(cr *launchv1alpha1.Launch) *corev1.Pod {
-// 	labels := map[string]string{
-// 		"app": cr.Name,
-// 	}
-// 	return &corev1.Pod{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      cr.Name + "-pod",
-// 			Namespace: cr.Namespace,
-// 			Labels:    labels,
-// 		},
-// 		Spec: corev1.PodSpec{
-// 			Containers: []corev1.Container{
-// 				{
-// 					Name:    "busybox",
-// 					Image:   "busybox",
-// 					Command: []string{"sleep", "3600"},
-// 				},
-// 			},
-// 		},
-// 	}
-// }

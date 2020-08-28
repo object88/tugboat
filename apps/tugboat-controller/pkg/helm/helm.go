@@ -16,8 +16,7 @@ import (
 )
 
 type Installer struct {
-	log logr.Logger
-	// getter    genericclioptions.RESTClientGetter
+	log       logr.Logger
 	namespace string
 	settings  *cli.EnvSettings
 }
@@ -34,11 +33,22 @@ func (i *Installer) IsDeployed(name string) (bool, error) {
 	rel, err := action.NewStatus(i.actionConfig()).Run(name)
 	if err != nil {
 		if errors.Is(err, driver.ErrReleaseNotFound) {
+			// An ErrReleaseNotFound just indicates that the chart is not installed.
+			// so clear the error.
 			err = nil
 		}
 		return false, err
 	}
 	return rel != nil, nil
+}
+
+func (i *Installer) Delete(name string) error {
+	act := action.NewUninstall(i.actionConfig())
+	if _, err := act.Run(name); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *Installer) Deploy(name string, launch *v1alpha1.LaunchSpec) error {
@@ -88,14 +98,7 @@ func (i *Installer) Update(name string, launch *v1alpha1.LaunchSpec) error {
 	}
 	i.log.Info("Referenced chart", "address", chartName)
 
-	ac := i.actionConfig()
-	// act := action.NewChartPull(ac)
-
-	// if err := act.Run(os.Stderr, chartName); err != nil {
-	// 	return err
-	// }
-
-	upgradeAct := action.NewUpgrade(ac)
+	upgradeAct := action.NewUpgrade(i.actionConfig())
 
 	chartPath, err := upgradeAct.ChartPathOptions.LocateChart(chartName, i.settings)
 	if err != nil {
