@@ -47,18 +47,19 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Launch")
 
+	h := helm.New(reqLogger, r.HelmSettings)
+	name := request.Name
+
 	// Fetch the Launch instance
 	instance := &launchv1alpha1.Launch{}
-	name := instance.Name
-	h := helm.New(reqLogger, r.HelmSettings)
-
 	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
+		// There was an error processing the request; requeue
 		if !errors.IsNotFound(err) {
-			// Error reading the object - requeue the request.
 			reqLogger.Error(err, "Error requesting launch")
 			return reconcile.Result{}, err
 		}
+
 		// Request object not found, could have been deleted after reconcile request.
 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 		// Return and don't requeue
@@ -69,10 +70,13 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 		} else if ok {
 			// The chart is still deployed; remove it now.
 			if err := h.Delete(name); err != nil {
+				reqLogger.Info("Failed to delete chart")
 				return reconcile.Result{}, err
 			}
 		}
 	} else {
+		// The Launch resource does exist; ensure that the helm deployment is
+		// aligned
 		if ok, err := h.IsDeployed(name); err != nil {
 			reqLogger.Error(err, "Check for deployment failed")
 			return reconcile.Result{}, err
