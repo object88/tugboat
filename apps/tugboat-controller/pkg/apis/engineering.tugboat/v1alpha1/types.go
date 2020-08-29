@@ -15,6 +15,8 @@ type Launch struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec LaunchSpec `json:"spec"`
+
+	Status LaunchStatus `json:"status"`
 }
 
 // LaunchSpec is the spec for a Launch resource
@@ -23,6 +25,10 @@ type LaunchSpec struct {
 	Chart      string          `json:"chart"`
 	Version    *semver.Version `json:"version"`
 	Values     string          `json:"values,omitempty"`
+}
+
+type LaunchStatus struct {
+	State string `json:"state"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

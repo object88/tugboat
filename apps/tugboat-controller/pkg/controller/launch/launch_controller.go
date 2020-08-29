@@ -77,15 +77,26 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 	} else {
 		// The Launch resource does exist; ensure that the helm deployment is
 		// aligned
+
 		if ok, err := h.IsDeployed(name); err != nil {
 			reqLogger.Error(err, "Check for deployment failed")
 			return reconcile.Result{}, err
 		} else if ok {
+			instance.Status.State = "UPDATING"
+			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
+
 			if err := h.Update(name, &instance.Spec); err != nil {
 				reqLogger.Error(err, "Update failed")
 				return reconcile.Result{}, err
 			}
 		} else {
+			instance.Status.State = "INSTALLING"
+			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
+
 			if err := h.Deploy(name, &instance.Spec); err != nil {
 				reqLogger.Error(err, "Install failed")
 				return reconcile.Result{}, err
