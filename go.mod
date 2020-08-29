@@ -3,7 +3,7 @@ module github.com/object88/tugboat
 go 1.15
 
 require (
-	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
+	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/bugsnag/bugsnag-go v1.5.3 // indirect
 	github.com/bugsnag/panicwrap v1.2.0 // indirect

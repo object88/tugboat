@@ -3,7 +3,7 @@ github.com/Azure/go-ansiterm
 github.com/Azure/go-ansiterm/winterm
 # github.com/BurntSushi/toml v0.3.1
 github.com/BurntSushi/toml
-# github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e
+# github.com/MakeNowJust/heredoc v1.0.0
 ## explicit
 github.com/MakeNowJust/heredoc
 # github.com/Masterminds/goutils v1.1.0
