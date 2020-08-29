@@ -65,7 +65,7 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	c.w = watcher.New(clientset)
+	c.w = watcher.NewPodWatcher(c.Log, clientset)
 
 	return nil
 }
