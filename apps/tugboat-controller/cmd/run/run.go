@@ -6,15 +6,12 @@ import (
 	"strings"
 
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/launch"
 	helmcliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cliflags"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/router"
-	"github.com/object88/tugboat/pkg/k8s/watchers"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -29,8 +26,6 @@ type command struct {
 	helmFlagMgr *helmcliflags.FlagManager
 	httpFlagMgr *httpcliflags.FlagManager
 	// k8sFlagMgr  *cliflags.FlagManager
-
-	w watchers.Watcher
 }
 
 // CreateCommand returns the `run` Command
@@ -64,17 +59,6 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 }
 
 func (c *command) preexecute(cmd *cobra.Command, args []string) error {
-	conf, err := c.helmFlagMgr.Client().ToRESTConfig()
-	if err != nil {
-		return err
-	}
-	clientset, err := versioned.NewForConfig(conf)
-	if err != nil {
-		return err
-	}
-
-	c.w = watcher.New(clientset)
-
 	return nil
 }
 

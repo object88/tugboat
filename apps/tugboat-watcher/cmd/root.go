@@ -3,6 +3,7 @@ package cmd
 import (
 	"time"
 
+	"github.com/object88/tugboat/apps/tugboat-watcher/cmd/run"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/object88/tugboat/internal/cmd/completion"
 	"github.com/object88/tugboat/internal/cmd/version"
@@ -15,7 +16,7 @@ func InitializeCommands() *cobra.Command {
 
 	rootCmd.AddCommand(
 		completion.CreateCommand(ca),
-		// run.CreateCommand(ca),
+		run.CreateCommand(ca),
 		version.CreateCommand(ca),
 	)
 
