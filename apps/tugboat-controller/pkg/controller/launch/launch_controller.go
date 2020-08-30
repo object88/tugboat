@@ -102,6 +102,11 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 				return reconcile.Result{}, err
 			}
 		}
+
+		instance.Status.State = "INSTALLED"
+		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Reconciliation complete.
