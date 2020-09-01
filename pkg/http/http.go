@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,17 +13,35 @@ import (
 type Server struct {
 	logger logr.Logger
 	srv    *http.Server
+
+	tlsSrv *http.Server
 }
 
 func New(logger logr.Logger, routes http.Handler, port int) *Server {
-	addr := fmt.Sprintf(":%d", port)
 	return &Server{
 		logger: logger,
 		srv: &http.Server{
-			Addr:    addr,
+			Addr:    fmt.Sprintf(":%d", port),
 			Handler: routes,
 		},
 	}
+}
+
+func (s *Server) ConfigureTLS(port int, certFile string, keyFile string) error {
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return err
+	}
+
+	s.tlsSrv = &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: s.srv.Handler,
+		TLSConfig: &tls.Config{
+			MinVersion:   tls.VersionTLS12,
+			Certificates: []tls.Certificate{cert},
+		},
+	}
+	return nil
 }
 
 func (s *Server) Serve(ctx context.Context) {
@@ -31,6 +50,14 @@ func (s *Server) Serve(ctx context.Context) {
 			s.logger.Error(err, "listen completed")
 		}
 	}()
+
+	if s.tlsSrv != nil {
+		go func() {
+			if err := s.tlsSrv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				s.logger.Error(err, "listen on TLS completed")
+			}
+		}()
+	}
 
 	s.logger.Info("Server Started")
 

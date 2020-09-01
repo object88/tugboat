@@ -49,7 +49,7 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 	flags := c.Flags()
 
 	c.helmFlagMgr.ConfigureFlags(flags)
-	c.httpFlagMgr.ConfigurePortFlag(flags)
+	c.httpFlagMgr.ConfigureHttpFlag(flags)
 	// c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
 
 	return common.TraverseRunHooks(&c.Command)
@@ -77,7 +77,7 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		http.New(c.Log, m, c.httpFlagMgr.Port()).Serve(ctx)
+		http.New(c.Log, m, c.httpFlagMgr.HttpPort()).Serve(ctx)
 		return nil
 	}
 

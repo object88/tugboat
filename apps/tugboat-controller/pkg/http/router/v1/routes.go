@@ -6,30 +6,20 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/object88/tugboat/apps/tugboat-slack/pkg/slack"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
 	"github.com/object88/tugboat/pkg/http/router/route"
 	"github.com/object88/tugboat/pkg/logging"
 )
 
-func Defaults(logger logr.Logger, bot *slack.Bot) []*route.Route {
+func Defaults(logger logr.Logger, v *validator.V) []*route.Route {
 	return []*route.Route{
 		{
 			Path:       "/v1/api",
 			Middleware: []mux.MiddlewareFunc{configureLoggingMiddleware(logger)},
 			Subroutes: []*route.Route{
 				{
-					Path:    "/commands",
-					Handler: configureHandleCommand(bot),
-					Methods: []string{http.MethodPost},
-				},
-				{
-					Path:    "/events",
-					Handler: configureHandleEvents(bot),
-					Methods: []string{http.MethodPost},
-				},
-				{
-					Path:    "/interactive",
-					Handler: configureHandleInteractive(bot),
+					Path:    "/validate",
+					Handler: configureValidatingAdmission(v),
 					Methods: []string{http.MethodPost},
 				},
 			},
@@ -47,21 +37,9 @@ func configureLoggingMiddleware(logger logr.Logger) mux.MiddlewareFunc {
 	}
 }
 
-func configureHandleCommand(bot *slack.Bot) http.HandlerFunc {
+func configureValidatingAdmission(v *validator.V) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		bot.ProcessSlashCommand(w, r)
-	}
-}
-
-func configureHandleEvents(bot *slack.Bot) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		bot.ProcessEventCommand(w, r)
-	}
-}
-
-func configureHandleInteractive(bot *slack.Bot) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		bot.ProcessInteractiveCommand(w, r)
+		v.ProcessAdmission(w, r)
 	}
 }
 

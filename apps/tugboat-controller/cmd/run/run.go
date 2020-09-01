@@ -8,6 +8,8 @@ import (
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/launch"
 	helmcliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cliflags"
+	v1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/http/router/v1"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
@@ -52,7 +54,8 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 	flags := c.Flags()
 
 	c.helmFlagMgr.ConfigureFlags(flags)
-	c.httpFlagMgr.ConfigurePortFlag(flags)
+	c.httpFlagMgr.ConfigureHttpFlag(flags)
+	c.httpFlagMgr.ConfigureHttpsFlags(flags)
 	// c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
 
 	return common.TraverseRunHooks(&c.Command)
@@ -64,12 +67,28 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
 	f0 := func(ctx context.Context) error {
-		m, err := router.New(c.Log).Route(router.Defaults())
+		v := validator.New(c.Log)
+		m, err := router.New(c.Log).Route(router.Defaults(v1.Defaults(c.Log, v)))
 		if err != nil {
 			return err
 		}
 
-		http.New(c.Log, m, c.httpFlagMgr.Port()).Serve(ctx)
+		cf, err := c.httpFlagMgr.HttpsCertFile()
+		if err != nil {
+			return err
+		}
+		kf, err := c.httpFlagMgr.HttpsKeyFile()
+		if err != nil {
+			return err
+		}
+
+		h := http.New(c.Log, m, c.httpFlagMgr.HttpPort())
+		if p := c.httpFlagMgr.HttpsPort(); p != 0 {
+			if err = h.ConfigureTLS(p, cf, kf); err != nil {
+				return err
+			}
+		}
+		h.Serve(ctx)
 		return nil
 	}
 

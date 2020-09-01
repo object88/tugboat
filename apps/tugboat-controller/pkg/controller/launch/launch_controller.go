@@ -7,6 +7,7 @@ import (
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
 	launchv1alpha1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/predicates"
 	"helm.sh/helm/v3/pkg/cli"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +34,7 @@ func (r *ReconcileLaunch) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		WithLogger(r.Log).
 		For(&v1alpha1.Launch{}).
+		WithEventFilter(predicates.ResourceGenerationOrFinalizerChangedPredicate{}).
 		Complete(r)
 }
 
@@ -105,9 +107,12 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 
 		instance.Status.State = "INSTALLED"
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Update to installed status failed")
 			return reconcile.Result{}, err
 		}
 	}
+
+	reqLogger.Info("Complete")
 
 	// Reconciliation complete.
 	return reconcile.Result{}, nil

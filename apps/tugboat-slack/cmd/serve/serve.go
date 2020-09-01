@@ -45,7 +45,7 @@ func CreateCommand(cmmn *common.CommonArgs) *cobra.Command {
 
 	flags := c.Flags()
 
-	c.httpFlagMgr.ConfigurePortFlag(flags)
+	c.httpFlagMgr.ConfigureHttpFlag(flags)
 	c.slackFlagMgr.ConfigureFlags(flags)
 
 	return common.TraverseRunHooks(&c.Command)
@@ -69,7 +69,7 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		s := http.New(c.Log, m, c.httpFlagMgr.Port())
+		s := http.New(c.Log, m, c.httpFlagMgr.HttpPort())
 		s.Serve(ctx)
 		return nil
 	})

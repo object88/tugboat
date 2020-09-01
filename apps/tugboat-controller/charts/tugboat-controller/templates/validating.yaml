@@ -1,0 +1,48 @@
+{{- if not .Values.tls.secretName }}
+{{ $ca := genCA "svc-cat-ca" 3650 }}
+{{ $cn := printf "tugboat-controller.%s.svc" .Release.Namespace }}
+{{ $server := genSignedCert $cn nil nil 365 $ca }}
+{{ $client := genSignedCert "" nil nil 365 $ca }}
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ template "tugboat-controller.fullname" . }}
+  labels:
+    app: {{ template "tugboat-controller.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+data:
+  caCert: {{ b64enc $ca.Cert }}
+  clientCert: {{ b64enc $client.Key }}
+  clientKey: {{ b64enc $client.Cert }}
+  serverCert: {{ b64enc $server.Cert }}
+  serverKey: {{ b64enc $server.Key }}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "tugboat-controller.fullname" . }}
+  labels:
+    app: {{ template "tugboat-controller.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+webhooks:
+  - name: {{ include "tugboat-controller.fullname" . }}-launch.tugboat.engineering
+    clientConfig:
+      service:
+        name: {{ include "tugboat-controller.fullname" . }}
+        namespace: default
+        path: /v1/api/validate
+      caBundle: {{ b64enc $ca.Cert }}
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["tugboat.engineering"]
+        apiVersions: ["v1alpha1"]
+        resources: ["launches"]
+    failurePolicy: Fail
+    sideEffects: "None"
+    admissionReviewVersions: ["v1"]
+{{ end }}

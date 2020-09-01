@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: {{ include "tugboat-controller.fullname" . }}
   labels:
+    app: {{ template "tugboat-controller.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
     {{- include "tugboat-controller.labels" . | nindent 4 }}
 spec:
 {{- if not .Values.autoscaling.enabled }}
@@ -34,8 +38,14 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            - name: TUGBOAT_PORT
+            - name: TUGBOAT_HTTP_PORT
               value: "{{ .Values.service.internalPort }}"
+            - name: TUGBOAT_HTTPS_CERT_FILE
+              value: "/etc/https-secrets/server-cert.pem"
+            - name: TUGBOAT_HTTPS_KEY_FILE
+              value: "/etc/https-secrets/server-key.pem"
+            - name: TUGBOAT_HTTPS_PORT
+              value: "3443"
             {{- range $k, $v := .Values.image.env }}
             - name: $k
               value: "$v"
@@ -54,6 +64,10 @@ spec:
               port: {{ .Values.service.internalPort }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: https-secrets
+              mountPath: "/etc/https-secrets"
+              readOnly: true
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -66,3 +80,13 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      volumes:
+        - name: https-secrets
+          secret:
+            secretName: {{ include "tugboat-controller.fullname" . }}
+            defaultMode: 0444
+            items:
+              - key: serverCert
+                path: "server-cert.pem"
+              - key: serverKey
+                path: "server-key.pem"

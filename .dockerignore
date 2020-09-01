@@ -1,4 +1,5 @@
 bin
+apps/*/charts
 docs
 local
 mocks

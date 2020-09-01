@@ -2,6 +2,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: "tugboat.engineering:launch:reader"
+  labels:
+    app: {{ template "tugboat-controller.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    heritage: {{ .Release.Service }}
+    release: {{ .Release.Name }}
 rules:
   - apiGroups: ["tugboat.engineering"]
     resources: ["launches"]
