@@ -33,7 +33,7 @@ require (
 	go.uber.org/zap v1.15.0
 	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	helm.sh/helm/v3 v3.3.0
+	helm.sh/helm/v3 v3.3.1
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
 	k8s.io/cli-runtime v0.18.8
