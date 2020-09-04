@@ -31,13 +31,30 @@ spec:
       serviceAccountName: {{ include "tugboat-controller.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      containers:
-        - name: {{ .Chart.Name }}
+      initContainers:
+        - name: {{ template "tugboat-controller.name" . }}-init
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ['configure', 'repositories', '--museum-config-file', '/etc/config/repos.yaml', '--verbose']
+          volumeMounts:
+            - name: {{ template "tugboat-controller.fullname" . }}-config-volume
+              mountPath: /etc/config/repos.yaml
+              subPath: repos.yaml
+            - name: helm-cache-volume
+              mountPath: /home/appuser/.cache/helm
+            - name: helm-config-volume
+              mountPath: /home/appuser/.config/helm
+      containers:
+        - name: {{ template "tugboat-controller.name" . }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: Never
           env:
+            - name: TMPDIR
+              value: "/home/appuser/tmp"
             - name: TUGBOAT_HTTP_PORT
               value: "{{ .Values.service.internalPort }}"
             - name: TUGBOAT_HTTPS_CERT_FILE
@@ -90,3 +107,8 @@ spec:
                 path: "server-cert.pem"
               - key: serverKey
                 path: "server-key.pem"
+        - name: {{ template "tugboat-controller.fullname" . }}-config-volume
+          configMap:
+            name: {{ template "tugboat-controller.fullname" . }}-config
+        - name: helm-cache-volume
+        - name: helm-config-volume

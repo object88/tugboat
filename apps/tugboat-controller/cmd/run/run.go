@@ -67,7 +67,7 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
 	f0 := func(ctx context.Context) error {
-		v := validator.New(c.Log)
+		v := validator.New(c.Log, c.helmFlagMgr.EnvSettings())
 		m, err := router.New(c.Log).Route(router.Defaults(v1.Defaults(c.Log, v)))
 		if err != nil {
 			return err

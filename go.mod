@@ -7,6 +7,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.1.0
 	github.com/bugsnag/bugsnag-go v1.5.3 // indirect
 	github.com/bugsnag/panicwrap v1.2.0 // indirect
+	github.com/chartmuseum/storage v0.9.0
 	github.com/docker/go-metrics v0.0.0-20181218153428-b84716841b82 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
@@ -16,7 +17,6 @@ require (
 	github.com/go-logr/zapr v0.1.0
 	github.com/go-openapi/spec v0.19.6 // indirect
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
-	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/mock v1.4.4
 	github.com/googleapis/gnostic v0.5.1 // indirect
 	github.com/gorilla/handlers v1.5.0
@@ -33,6 +33,7 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc // indirect
 	gopkg.in/yaml.v2 v2.3.0
+	helm.sh/chartmuseum v0.12.0
 	helm.sh/helm/v3 v3.3.1
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
@@ -47,4 +48,8 @@ require (
 // modules than it does for releases on the repository. Note the correct
 // version when updating.
 // github.com/Azure/go-autorest/autorest => github.com/Azure/go-autorest/autorest v0.9.0
-replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309
+replace (
+	github.com/NetEase-Object-Storage/nos-golang-sdk => github.com/karuppiah7890/nos-golang-sdk v0.0.0-20191116042345-0792ba35abcc
+	github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309
+	go.etcd.io/etcd => github.com/eddycjy/etcd v0.5.0-alpha.5.0.20200218102753-4258cdd2efdf
+)

@@ -66,3 +66,19 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+chartsRepositories:
+  - caFile: ""
+    certFile: ""
+    keyFile: ""
+    name: stable
+    password: ""
+    url: https://kubernetes-charts.storage.googleapis.com
+    username: ""
+  - caFile: ""
+    certFile: ""
+    keyFile: ""
+    name: bitnami
+    password: ""
+    url: https://charts.bitnami.com/bitnami
+    username: ""

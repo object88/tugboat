@@ -5,6 +5,7 @@ import (
 
 	// "github.com/object88/tugboat/apps/cmd/common"
 	// "github.com/object88/tugboat/cmd/common"
+	"github.com/object88/tugboat/apps/tugboat-controller/cmd/configure"
 	"github.com/object88/tugboat/apps/tugboat-controller/cmd/run"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/object88/tugboat/internal/cmd/completion"
@@ -26,6 +27,7 @@ func InitializeCommands() *cobra.Command {
 
 	rootCmd.AddCommand(
 		completion.CreateCommand(ca),
+		configure.CreateCommand(ca),
 		run.CreateCommand(ca),
 		version.CreateCommand(ca),
 	)
