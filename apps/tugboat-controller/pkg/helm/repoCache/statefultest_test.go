@@ -1,4 +1,4 @@
-package helm
+package repoCache
 
 import (
 	"fmt"
@@ -122,7 +122,7 @@ func (s *StatefulTest) findProjectRoot() {
 		fi, err := os.Stat(filepath.Join(startdir, "go.mod"))
 		if err != nil {
 			if !os.IsNotExist(err) {
-				panic(fmt.Errorf"internal error: got unexpected non-os.PathError from os.Stat: %w", err))
+				panic(fmt.Errorf("internal error: got unexpected non-os.PathError from os.Stat: %w", err))
 			}
 			// Not here, keep moving.
 		} else if !fi.IsDir() {
@@ -198,23 +198,23 @@ func (s *StatefulTest) createTestChart(chartname string, version *semver.Version
 	starterDir := filepath.Join(s.ProjectRootDir, "testdata", "starter")
 	err := chartutil.CreateFrom(cfile, chartdir, starterDir)
 	if err != nil {
-		return fmt.Errorf("internal error: failed to create chart from starte: %wr, err")
+		return fmt.Errorf("internal error: failed to create chart from starter: %w", err)
 	}
 
 	chartdir = filepath.Join(chartdir, chartname)
 	chrt, err := loader.Load(chartdir)
 	if err != nil {
-		return fmt.Errorf("internal error: failed to load created char: %wt, err")
+		return fmt.Errorf("internal error: failed to load created chart: %w", err)
 	}
 
 	packageFile, err := chartutil.Save(chrt, chartdir)
 	if err != nil {
-		return fmt.Errorf("internal error: failed to package char: %wt, err")
+		return fmt.Errorf("internal error: failed to package chart: %w", err)
 	}
 
 	err = s.srv.uploadArchive(packageFile)
 	if err != nil {
-		return fmt.Errorf("internal error: failed to upload the archiv: %we, err")
+		return fmt.Errorf("internal error: failed to upload the archive: %w", err)
 	}
 
 	return nil

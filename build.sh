@@ -54,6 +54,7 @@ LDFLAGS_IMPORTS="-X github.com/object88/tugboat/pkg/version.GitCommit=${GIT_COMM
 cd "$CWD"
 
 # default to mostly true, set env val to override
+DO_GEN=${DO_GEN:-"true"}
 DO_LOCAL_INSTALL=${DO_LOCAL_INSTALL:-"true"}
 DO_PACKAGE=${DO_PACKAGE:-"false"}
 DO_TEST=${DO_TEST:-"true"}
@@ -66,11 +67,16 @@ while [[ $# -gt 0 ]]; do
   KEY="$1"
   case $KEY in
     --fast)
+        DO_GEN="false"
         DO_LOCAL_INSTALL="false"
         DO_PACKAGE="false"
         DO_TEST="false"
         DO_VERIFY="false"
         DO_VET="false"
+        shift
+        ;;
+    --no-gen)
+        DO_GEN="false"
         shift
         ;;
     --no-local-install)
@@ -103,6 +109,13 @@ done
 if [ ${#TARGETS[@]} -eq 0 ]; then
   echo "No targets specified; building all apps."
   TARGETS=( $(ls apps) )
+fi
+
+if [[ $DO_GEN == "true" ]]; then
+  # Run go generate to generate any go generate generated go code.
+  echo "Running generator"
+
+  go generate ./...
 fi
 
 if [[ $DO_TEST == "true" ]]; then

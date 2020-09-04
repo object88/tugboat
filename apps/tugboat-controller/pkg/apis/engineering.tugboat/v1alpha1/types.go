@@ -40,3 +40,6 @@ type LaunchList struct {
 
 	Items []Launch `json:"items"`
 }
+
+// type Repository struct {
+// }

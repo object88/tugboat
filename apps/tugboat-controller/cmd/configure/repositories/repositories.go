@@ -3,7 +3,7 @@ package repositories
 import (
 	"io/ioutil"
 
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/repoCache"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/repoCache/cliflags"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/spf13/cobra"
@@ -15,7 +15,7 @@ type command struct {
 	cobra.Command
 	*common.CommonArgs
 
-	helm        *helm.Helm
+	helm        *repoCache.Helm
 	helmFlagMgr *cliflags.FlagManager
 }
 
@@ -47,11 +47,11 @@ func CreateCommand(cmmn *common.CommonArgs) *cobra.Command {
 }
 
 func (c *command) preexecute(cmd *cobra.Command, args []string) error {
-	c.helm = helm.New()
+	c.helm = repoCache.New()
 
 	err := c.helm.Connect(
-		helm.WithHelmEnvSettings(c.helmFlagMgr.HelmEnvSettings()),
-		helm.WithLogger(c.Log),
+		repoCache.WithHelmEnvSettings(c.helmFlagMgr.HelmEnvSettings()),
+		repoCache.WithLogger(c.Log),
 	)
 	if err != nil {
 		return err
