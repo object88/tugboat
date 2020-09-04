@@ -6,6 +6,12 @@ Tugboat improves the [Helm](helm.sh) chart deployment process for developers by 
 
 In some kubernetes environments, a software developer may not have complete access all Kubernetes resources. For example, a production environment may be walled off. Tools such as Splunk or Datadog give an excellent _overview_ of a complete Kubernetes environment, but may not provide an easily accessible, _acute_ view of changes relevant to a deployment. This is not a criticism of these tools, just an observation of the space that Tugboat intends to fill.
 
+## What does Tugboat do?
+
+Tugboat uses a Kubernetes custom resource (`launch`) to represent a Helm deployment, and uses the observer pattern to perform Help operations (install, update, delete). At the time of deployment, the helm chart's template files are decorated with labels and annotations. This allows tugboat to associate the changes in kubernetes resources introduced with a particular deployment.
+
+Because Tugboat is in control of the Helm deployments, it has visibility into anticipated changes, and can detect and report on abnormalities.
+
 ## What questions does Tugboat answer?
 
 During deployment...
