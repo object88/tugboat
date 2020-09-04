@@ -14,6 +14,7 @@ import (
 type TugboatV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	LaunchesGetter
+	RepositoriesGetter
 }
 
 // TugboatV1alpha1Client is used to interact with features provided by the tugboat.engineering group.
@@ -23,6 +24,10 @@ type TugboatV1alpha1Client struct {
 
 func (c *TugboatV1alpha1Client) Launches(namespace string) LaunchInterface {
 	return newLaunches(c, namespace)
+}
+
+func (c *TugboatV1alpha1Client) Repositories(namespace string) RepositoryInterface {
+	return newRepositories(c, namespace)
 }
 
 // NewForConfig creates a new TugboatV1alpha1Client for the given config.

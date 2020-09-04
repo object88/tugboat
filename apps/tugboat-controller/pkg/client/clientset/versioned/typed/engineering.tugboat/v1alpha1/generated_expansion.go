@@ -6,3 +6,5 @@ LICENSE
 package v1alpha1
 
 type LaunchExpansion interface{}
+
+type RepositoryExpansion interface{}

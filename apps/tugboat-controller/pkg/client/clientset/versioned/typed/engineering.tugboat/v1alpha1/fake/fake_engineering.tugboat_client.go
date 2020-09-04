@@ -19,6 +19,10 @@ func (c *FakeTugboatV1alpha1) Launches(namespace string) v1alpha1.LaunchInterfac
 	return &FakeLaunches{c, namespace}
 }
 
+func (c *FakeTugboatV1alpha1) Repositories(namespace string) v1alpha1.RepositoryInterface {
+	return &FakeRepositories{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeTugboatV1alpha1) RESTClient() rest.Interface {

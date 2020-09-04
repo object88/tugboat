@@ -13,6 +13,8 @@ import (
 type Interface interface {
 	// Launches returns a LaunchInformer.
 	Launches() LaunchInformer
+	// Repositories returns a RepositoryInformer.
+	Repositories() RepositoryInformer
 }
 
 type version struct {
@@ -29,4 +31,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // Launches returns a LaunchInformer.
 func (v *version) Launches() LaunchInformer {
 	return &launchInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// Repositories returns a RepositoryInformer.
+func (v *version) Repositories() RepositoryInformer {
+	return &repositoryInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
