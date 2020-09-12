@@ -9,10 +9,9 @@ metadata:
     release: {{ .Release.Name }}
 rules:
   - apiGroups: ["tugboat.engineering"]
-    resources: ["launches"]
+    resources: ["launches", "repositories"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["*"]
     resources: ["*"]
     verbs: ["get", "list", "create", "update", "patch", "delete"]
     # verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-      

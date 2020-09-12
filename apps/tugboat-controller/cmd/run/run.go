@@ -7,6 +7,9 @@ import (
 
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/launch"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/charts"
+	chartcachecliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/charts/cliflags"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos"
 	helmcliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cliflags"
 	v1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/http/router/v1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
@@ -25,8 +28,12 @@ type command struct {
 	cobra.Command
 	*common.CommonArgs
 
-	helmFlagMgr *helmcliflags.FlagManager
-	httpFlagMgr *httpcliflags.FlagManager
+	cc *charts.Cache
+	rc *repos.Cache
+
+	chartCacheFlagMgr *chartcachecliflags.FlagManager
+	helmFlagMgr       *helmcliflags.FlagManager
+	httpFlagMgr       *httpcliflags.FlagManager
 	// k8sFlagMgr  *cliflags.FlagManager
 }
 
@@ -45,14 +52,17 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 				return c.execute(cmd, args)
 			},
 		},
-		CommonArgs:  ca,
-		helmFlagMgr: helmcliflags.New(),
-		httpFlagMgr: httpcliflags.New(),
+		CommonArgs:        ca,
+		chartCacheFlagMgr: chartcachecliflags.New(),
+		helmFlagMgr:       helmcliflags.New(),
+		httpFlagMgr:       httpcliflags.New(),
 		// k8sFlagMgr:  cliflags.New(),
 	}
 
 	flags := c.Flags()
 
+	c.chartCacheFlagMgr.ConfigureCacheDepthFlag(flags)
+	c.chartCacheFlagMgr.ConfigureCacheDirectoryFlag(flags)
 	c.helmFlagMgr.ConfigureFlags(flags)
 	c.httpFlagMgr.ConfigureHttpFlag(flags)
 	c.httpFlagMgr.ConfigureHttpsFlags(flags)
@@ -62,12 +72,41 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 }
 
 func (c *command) preexecute(cmd *cobra.Command, args []string) error {
+	c.rc = repos.New()
+	err := c.rc.Connect(
+		repos.WithHelmEnvSettings(c.helmFlagMgr.EnvSettings()),
+		repos.WithLogger(c.Log),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to repo cache: %w", err)
+	}
+	if err := c.rc.UpdateRepositories(); err != nil {
+		return err
+	}
+
+	cdir, err := c.chartCacheFlagMgr.CacheDirectory()
+	if err != nil {
+		return fmt.Errorf("failed to get cache directory: %w", err)
+	}
+
+	c.cc = charts.New()
+	err = c.cc.Connect(
+		charts.WithCacheDepth(c.chartCacheFlagMgr.CacheDepth()),
+		charts.WithCacheDirectory(cdir),
+		charts.WithHelmEnvSettings(c.helmFlagMgr.EnvSettings()),
+		charts.WithLogger(c.Log),
+		charts.WithRepoCache(c.rc),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to chart cache: %w", err)
+	}
+
 	return nil
 }
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
 	f0 := func(ctx context.Context) error {
-		v := validator.New(c.Log, c.helmFlagMgr.EnvSettings())
+		v := validator.New(c.Log, c.rc, c.helmFlagMgr.EnvSettings())
 		m, err := router.New(c.Log).Route(router.Defaults(v1.Defaults(c.Log, v)))
 		if err != nil {
 			return err
@@ -133,6 +172,7 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 		}
 
 		if err = (&launch.ReconcileLaunch{
+			Cache:        c.cc,
 			Client:       mgr.GetClient(),
 			HelmSettings: c.helmFlagMgr.EnvSettings(),
 			Log:          c.Log.WithName("controllers").WithName("Launch"),
@@ -146,7 +186,5 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 		return mgr.Start(ctx.Done())
 	}
 
-	err := common.Multiblock(c.Log, f0, f1)
-
-	return err
+	return common.Multiblock(c.Log, f0, f1)
 }

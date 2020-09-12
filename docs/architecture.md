@@ -13,6 +13,15 @@ Spec:
 | `version` | semver | Y | The chart version |
 | `repository` | URL or string | Y | Either a URL to a publically accessible chart museum, or the name of a Repository custom resource
 
+## Repository
+
+The Repository custom resource (`repositories.tugboat.engineering`) encapsulates a Helm repository.
+
+Spec:
+| Property | Type | Required | Description
+| --- | --- | --- | --- | 
+| `name` | string | Y | The local name of the repository
+| `url` | URL | Y | The URL for the repository
 
 ## Tugboat Controller
 

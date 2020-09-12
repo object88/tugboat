@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -43,7 +44,7 @@ func (ca *CommonArgs) Evaluate() error {
 		z, err = zap.NewProduction()
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create zap logger: %w", err)
 	}
 	ca.Log = zapr.NewLogger(z)
 

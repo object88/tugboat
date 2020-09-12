@@ -1,0 +1,62 @@
+@startuml Create launch
+
+actor user
+box "kubernetes"
+participant kubeapi
+participant etcd
+end box
+box "launch controller"
+participant validatingwebhook
+participant launchreconciler
+participant helm
+end box
+database chartmuseum
+
+user -> kubeapi : kubectl apply -f launch.yaml
+activate kubeapi
+
+kubeapi -> validatingwebhook
+activate validatingwebhook
+
+
+validatingwebhook -> kubeapi : retrieve repository CR
+activate kubeapi
+kubeapi -> validatingwebhook
+deactivate kubeapi
+
+validatingwebhook -> chartmuseum : retrieve chart
+activate chartmuseum
+chartmuseum -> validatingwebhook
+deactivate chartmuseum
+
+validatingwebhook -> kubeapi
+deactivate validatingwebhook
+
+kubeapi -> etcd : persist launch CR
+activate etcd
+etcd -> kubeapi
+deactivate etcd
+
+' User gets response
+kubeapi -> user : OK
+
+kubeapi -> launchreconciler
+activate launchreconciler
+launchreconciler -> helm
+activate helm
+
+loop each k8s resource
+helm -> kubeapi : deploy kubernetes resources
+activate kubeapi
+kubeapi -> helm
+deactivate kubeapi
+end
+
+helm -> launchreconciler
+deactivate helm
+launchreconciler -> kubeapi
+deactivate launchreconciler
+
+deactivate kubeapi
+
+@enduml

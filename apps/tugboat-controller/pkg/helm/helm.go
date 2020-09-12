@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/hashicorp/go-multierror"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/charts"
 	"github.com/object88/tugboat/pkg/logging"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -22,10 +23,13 @@ type Installer struct {
 	log       logr.Logger
 	namespace string
 	settings  *cli.EnvSettings
+
+	cache *charts.Cache
 }
 
-func New(log logr.Logger, settings *cli.EnvSettings) *Installer {
+func New(log logr.Logger, settings *cli.EnvSettings, cache *charts.Cache) *Installer {
 	return &Installer{
+		cache:     cache,
 		log:       log,
 		settings:  settings,
 		namespace: "default",
@@ -55,20 +59,26 @@ func (i *Installer) Delete(name string) error {
 }
 
 func (i *Installer) Deploy(name string, launch *v1alpha1.LaunchSpec) error {
-	chartName := fmt.Sprintf("%s:%s", launch.Chart, launch.Version)
-	if launch.Repository != "" {
-		trimmed := launch.Chart[strings.Index(launch.Chart, "/"):]
-		chartName = fmt.Sprintf("%s%s-%s.tgz", launch.Repository, trimmed, launch.Version.String())
+	chartPath, cleanup, err := i.cache.Unpack(launch.ChartReference)
+	if err != nil {
+		return fmt.Errorf("Failed to unpack for deployment '%s'; %#v: %w", name, launch.ChartReference, err)
 	}
-	i.log.Info("Referenced chart", "address", chartName)
+	defer cleanup()
+
+	// chartName := fmt.Sprintf("%s:%s", launch.Chart, launch.Version)
+	// if launch.Repository != "" {
+	// 	trimmed := launch.Chart[strings.Index(launch.Chart, "/"):]
+	// 	chartName = fmt.Sprintf("%s%s-%s.tgz", launch.Repository, trimmed, launch.Version.String())
+	// }
+	// i.log.Info("Referenced chart", "address", chartName)
 
 	act := action.NewInstall(i.actionConfig())
 	act.ReleaseName = name
 
-	chartPath, err := act.ChartPathOptions.LocateChart(chartName, i.settings)
-	if err != nil {
-		return err
-	}
+	// chartPath, err := act.ChartPathOptions.LocateChart(chartName, i.settings)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// vals, err := valueOpts.MergeValues(getter.All(settings))
 	// if err != nil {

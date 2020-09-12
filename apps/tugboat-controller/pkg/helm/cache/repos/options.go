@@ -1,4 +1,4 @@
-package repoCache
+package repos
 
 import (
 	"github.com/go-logr/logr"

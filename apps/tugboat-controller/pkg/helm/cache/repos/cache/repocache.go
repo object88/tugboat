@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/repo"
 )
 
@@ -13,7 +12,7 @@ import (
 type RepoCache struct {
 	*Config
 
-	repository string
+	repository *repo.Entry
 
 	contents map[string]*countedrepo
 	lock     sync.RWMutex
@@ -25,12 +24,12 @@ type countedrepo struct {
 }
 
 type countedversion struct {
-	metadata *chart.Metadata
-	count    uint
+	cv    *repo.ChartVersion
+	count uint
 }
 
 // NewRepoCache returns a new instance of a RepoCache
-func NewRepoCache(config *Config, repository string) (*RepoCache, error) {
+func NewRepoCache(config *Config, repository *repo.Entry) (*RepoCache, error) {
 	if config == nil {
 		return nil, fmt.Errorf("No Config provided to NewRepoCache")
 	}
@@ -44,9 +43,10 @@ func NewRepoCache(config *Config, repository string) (*RepoCache, error) {
 	return rc, nil
 }
 
-// Get returns a pointer to the chart.Metadata, if it exists
-func (rc *RepoCache) Get(name, version string) (*chart.Metadata, bool) {
-	get := func(name, version string) (*chart.Metadata, bool) {
+// Get returns a pointer to the chart.ChartVersion. If the chart is not cached,
+// it will refresh the repo index and attempt to download it.
+func (rc *RepoCache) Get(name, version string) (*repo.ChartVersion, bool) {
+	get := func(name, version string) (*repo.ChartVersion, bool) {
 		rc.lock.RLock()
 		defer rc.lock.RUnlock()
 
@@ -65,7 +65,7 @@ func (rc *RepoCache) Get(name, version string) (*chart.Metadata, bool) {
 			return nil, false
 		}
 
-		return v.metadata, true
+		return v.cv, true
 	}
 
 	metadata, ok := get(name, version)
@@ -78,7 +78,7 @@ func (rc *RepoCache) Get(name, version string) (*chart.Metadata, bool) {
 	// We have a cache miss; start a request for the missing repo contents.  This
 	// is a blocking operation.  Once it returns, the cache should be repopulated
 	// with a call to `Load`.
-	err := rc.Loader.Load(context.Background(), rc.repository)
+	err := rc.Loader.Load(context.Background(), rc.repository.Name)
 	if err != nil {
 		return nil, false
 	}
@@ -116,7 +116,7 @@ func (rc *RepoCache) Load(index *repo.IndexFile) error {
 
 		for _, version := range versions {
 			v.contents[version.Version] = &countedversion{
-				metadata: version.Metadata,
+				cv: version,
 			}
 			versioncount++
 		}

@@ -24,13 +24,19 @@ func Test_Cache_Hit(t *testing.T) {
 	// Do not establish any mocked calls; the cache should not need to make any
 	// such request.
 
+	repository := repo.Entry{
+		Name: repoName,
+	}
+
 	c := Cache{}
 	c.Initialize(mrl)
-	c.AddRepository(repoName)
+	c.AddRepository(&repository)
 	c.contents[repoName].contents[chartName] = &countedrepo{
 		contents: map[string]*countedversion{
-			chartVersion: &countedversion{
-				metadata: &chart.Metadata{},
+			chartVersion: {
+				cv: &repo.ChartVersion{
+					Metadata: &chart.Metadata{},
+				},
 			},
 		},
 	}
@@ -52,6 +58,10 @@ func Test_Cache_Get_Miss(t *testing.T) {
 	chartName := "foo"
 	chartVersion := "1.2.3"
 	repoName := "repo"
+
+	repository := repo.Entry{
+		Name: repoName,
+	}
 
 	tcs := []struct {
 		name     string
@@ -85,7 +95,7 @@ func Test_Cache_Get_Miss(t *testing.T) {
 				},
 			}
 			c.Initialize(mrl)
-			c.AddRepository(repoName)
+			c.AddRepository(&repository)
 			c.Load(repoName, ToIndexFile(tc.preloads...))
 
 			// Prepare for the miss fetch
@@ -109,7 +119,7 @@ func Test_Cache_Get_Miss(t *testing.T) {
 				t.Errorf("Unexpected error: %s", err.Error())
 			}
 			if !ok {
-				t.Errorf("NOTOF")
+				t.Errorf("NOTOK")
 			}
 			if m == nil {
 				t.Errorf("Did not get *chart.Metadata")

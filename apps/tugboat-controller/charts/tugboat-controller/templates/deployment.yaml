@@ -37,11 +37,9 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ['configure', 'repositories', '--museum-config-file', '/etc/config/repos.yaml', '--verbose']
+          command: ['/usr/local/bin/tugboat-controller']
+          args: ['configure', '--verbose']
           volumeMounts:
-            - name: {{ template "tugboat-controller.fullname" . }}-config-volume
-              mountPath: /etc/config/repos.yaml
-              subPath: repos.yaml
             - name: helm-cache-volume
               mountPath: /home/appuser/.cache/helm
             - name: helm-config-volume
@@ -85,6 +83,10 @@ spec:
             - name: https-secrets
               mountPath: "/etc/https-secrets"
               readOnly: true
+            - name: helm-cache-volume
+              mountPath: /home/appuser/.cache/helm
+            - name: helm-config-volume
+              mountPath: /home/appuser/.config/helm
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

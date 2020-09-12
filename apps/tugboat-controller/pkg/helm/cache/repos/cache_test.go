@@ -1,20 +1,31 @@
-package repoCache
+package repos
 
 import (
 	"testing"
 
-	"github.com/Masterminds/semver/v3"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/chartmuseum"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/utils"
 	"helm.sh/helm/v3/pkg/cli"
 )
 
-func Test_ChartMuseum(t *testing.T) {
+func Test_Cache_Repos(t *testing.T) {
 	s := NewStatefulTest()
 	defer s.Close()
 
-	s.Run(t)
+	s.Run(t, s)
 }
 
-func (s *StatefulTest) Test_Something(t *testing.T) {
+type StatefulTest struct {
+	*chartmuseum.StatefulTest
+}
+
+func NewStatefulTest() *StatefulTest {
+	return &StatefulTest{
+		StatefulTest: chartmuseum.NewStatefulTest(),
+	}
+}
+
+func (s *StatefulTest) Test_Cache_Repos_GetVersion(t *testing.T) {
 	helmSettings := cli.New()
 	helmSettings.Debug = true
 	helmSettings.RepositoryCache = s.RepositoryCacheDir
@@ -35,8 +46,8 @@ func (s *StatefulTest) Test_Something(t *testing.T) {
 
 	h.logger.Info("Updated")
 
-	v := willMakeVersion("0.1.0")
-	cm, err := h.GetChartMetadata(TestRepositoryName, "app-foo", v)
+	v := utils.WillMakeVersion("0.1.0")
+	cm, err := h.GetChartVersion(chartmuseum.TestRepositoryName, "app-foo", v)
 	if err != nil {
 		t.Errorf("Failed to get chart metadata:\n\t%s\n", err.Error())
 	}
@@ -44,9 +55,4 @@ func (s *StatefulTest) Test_Something(t *testing.T) {
 	if cm == nil {
 		t.Errorf("Failed to get chart metadata back for chart '%s' version '%s'", "app-foo", v.String())
 	}
-}
-
-func willMakeVersion(in string) *semver.Version {
-	v, _ := semver.NewVersion(in)
-	return v
 }

@@ -5,6 +5,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ChartReference struct {
+	Repository string          `json:"repository"`
+	Chart      string          `json:"chart"`
+	Version    *semver.Version `json:"version"`
+}
+
 // +genclient
 // +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -21,10 +27,8 @@ type Launch struct {
 
 // LaunchSpec is the spec for a Launch resource
 type LaunchSpec struct {
-	Repository string          `json:"repository"`
-	Chart      string          `json:"chart"`
-	Version    *semver.Version `json:"version"`
-	Values     string          `json:"values,omitempty"`
+	ChartReference `json:",inline"`
+	Values         string `json:"values,omitempty"`
 }
 
 // LaunchStatus is the status for a Launch resource

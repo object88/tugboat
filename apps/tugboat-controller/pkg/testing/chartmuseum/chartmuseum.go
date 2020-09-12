@@ -1,4 +1,4 @@
-package repoCache
+package chartmuseum
 
 import (
 	"fmt"
@@ -8,18 +8,25 @@ import (
 	"os"
 
 	"github.com/chartmuseum/storage"
+	"github.com/gin-gonic/gin"
 	"helm.sh/chartmuseum/pkg/chartmuseum/logger"
 	"helm.sh/chartmuseum/pkg/chartmuseum/router"
 	"helm.sh/chartmuseum/pkg/chartmuseum/server/multitenant"
 )
 
-type testChartMuseum struct {
-	server *multitenant.MultiTenantServer
+type TestChartMuseum struct {
+	Server *multitenant.MultiTenantServer
 
-	httpserver *httptest.Server
+	HTTPServer *httptest.Server
+
+	Requests map[string]int
 }
 
-func newTestChartMuseum(storagepath string) (*testChartMuseum, error) {
+func NewTestChartMuseum(storagepath string) (*TestChartMuseum, error) {
+	tcm := &TestChartMuseum{
+		Requests: map[string]int{},
+	}
+
 	lggr, err := logger.NewLogger(logger.LoggerOptions{
 		Debug:   false,
 		LogJSON: true,
@@ -36,6 +43,8 @@ func newTestChartMuseum(storagepath string) (*testChartMuseum, error) {
 		MaxUploadSize: 1024 * 512,
 	})
 
+	rtr.Use(tcm.Track)
+
 	storageBackend := storage.NewLocalFilesystemBackend(storagepath)
 
 	options := multitenant.MultiTenantServerOptions{
@@ -47,29 +56,27 @@ func newTestChartMuseum(storagepath string) (*testChartMuseum, error) {
 		DisableDelete:  true,
 	}
 
-	server, err := multitenant.NewMultiTenantServer(options)
+	tcm.Server, err = multitenant.NewMultiTenantServer(options)
 	if err != nil {
 		return nil, fmt.Errorf("Internal error: failed to create multi-tenant server: %w", err)
 	}
 
-	return &testChartMuseum{
-		server: server,
-	}, nil
+	return tcm, nil
 }
 
-func (tcm *testChartMuseum) Run() {
-	tcm.httpserver = httptest.NewUnstartedServer(tcm.server.Router)
-	tcm.httpserver.Start()
+func (tcm *TestChartMuseum) Run() {
+	tcm.HTTPServer = httptest.NewUnstartedServer(tcm.Server.Router)
+	tcm.HTTPServer.Start()
 }
 
-func (tcm *testChartMuseum) Close() error {
-	tcm.httpserver.Close()
+func (tcm *TestChartMuseum) Close() error {
+	tcm.HTTPServer.Close()
 	return nil
 }
 
-func (tcm *testChartMuseum) refreshIndex() error {
-	client := tcm.httpserver.Client()
-	resp, err := client.Get(tcm.httpserver.URL + "/index.yaml")
+func (tcm *TestChartMuseum) RefreshIndex() error {
+	client := tcm.HTTPServer.Client()
+	resp, err := client.Get(tcm.HTTPServer.URL + "/index.yaml")
 	defer func() {
 		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
@@ -86,13 +93,13 @@ func (tcm *testChartMuseum) refreshIndex() error {
 	return nil
 }
 
-func (tcm *testChartMuseum) uploadArchive(packagePath string) error {
+func (tcm *TestChartMuseum) UploadArchive(packagePath string) error {
 	f, err := os.Open(packagePath)
 	if err != nil {
 		return fmt.Errorf("internal error: failed to upload chart: %w", err)
 	}
-	client := tcm.httpserver.Client()
-	resp, err := client.Post(tcm.httpserver.URL+"/api/charts", "application/tar+gzip", f)
+	client := tcm.HTTPServer.Client()
+	resp, err := client.Post(tcm.HTTPServer.URL+"/api/charts", "application/tar+gzip", f)
 	defer func() {
 		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
@@ -107,4 +114,19 @@ func (tcm *testChartMuseum) uploadArchive(packagePath string) error {
 	}
 
 	return nil
+}
+
+func (tcm *TestChartMuseum) Track(c *gin.Context) {
+	if i, ok := tcm.Requests[c.Request.URL.Path]; !ok {
+		tcm.Requests[c.Request.URL.Path] = 1
+	} else {
+		tcm.Requests[c.Request.URL.Path] = i + 1
+	}
+	c.Next()
+}
+
+func (tcm *TestChartMuseum) DumpRequests() {
+	for k, v := range tcm.Requests {
+		fmt.Printf("%s: %d\n", k, v)
+	}
 }

@@ -1,4 +1,4 @@
-package repoCache
+package repos
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 )
 
 // GetRepoIndexFile satisfies `loader.GetRepoIndexFile`
-func (h *Helm) GetRepoIndexFile(name string) (*repo.IndexFile, error) {
+func (h *Cache) GetRepoIndexFile(name string) (*repo.IndexFile, error) {
 	// h.logger.Infof("Getting chart metadata for '%s/%s@%s'\n", chartrepo, name, version.String())
 	var e *repo.Entry
 	for _, entry := range h.f.Repositories {

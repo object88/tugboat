@@ -21,7 +21,10 @@ func New() *FlagManager {
 	}
 }
 
+// ConfigureFlags uses the helm packages to add helm-related flags to the CLI.
+// This is paired with `HelmEnvSettings`.
 func (fl *FlagManager) ConfigureFlags(flags *pflag.FlagSet) {
+	// fl.helmSettings = cli.New()
 	fl.env.AddFlags(flags)
 }
 

@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
-	launchv1alpha1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/charts"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/predicates"
 	"helm.sh/helm/v3/pkg/cli"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +28,7 @@ type ReconcileLaunch struct {
 	Log          logr.Logger
 	Scheme       *runtime.Scheme
 	HelmSettings *cli.EnvSettings
+	Cache        *charts.Cache
 }
 
 func (r *ReconcileLaunch) SetupWithManager(mgr ctrl.Manager) error {
@@ -46,33 +47,33 @@ func (r *ReconcileLaunch) SetupWithManager(mgr ctrl.Manager) error {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Launch")
+	recLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	recLogger.Info("Reconciling Launch")
 
-	h := helm.New(reqLogger, r.HelmSettings)
+	h := helm.New(recLogger, r.HelmSettings, r.Cache)
 	name := request.Name
 
 	// Fetch the Launch instance
-	instance := &launchv1alpha1.Launch{}
+	instance := &v1alpha1.Launch{}
 	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		// There was an error processing the request; requeue
 		if !errors.IsNotFound(err) {
-			reqLogger.Error(err, "Error requesting launch")
+			recLogger.Error(err, "Error requesting launch")
 			return reconcile.Result{}, err
 		}
 
 		// Request object not found, could have been deleted after reconcile request.
 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 		// Return and don't requeue
-		reqLogger.Info("Did not find launch")
+		recLogger.Info("Did not find launch")
 		if ok, err := h.IsDeployed(name); err != nil {
-			reqLogger.Error(err, "Check for deployment failed")
+			recLogger.Error(err, "Check for deployment failed")
 			return reconcile.Result{}, err
 		} else if ok {
 			// The chart is still deployed; remove it now.
 			if err := h.Delete(name); err != nil {
-				reqLogger.Info("Failed to delete chart")
+				recLogger.Info("Failed to delete chart")
 				return reconcile.Result{}, err
 			}
 		}
@@ -81,7 +82,7 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 		// aligned
 
 		if ok, err := h.IsDeployed(name); err != nil {
-			reqLogger.Error(err, "Check for deployment failed")
+			recLogger.Error(err, "Check for deployment failed")
 			return reconcile.Result{}, err
 		} else if ok {
 			instance.Status.State = "UPDATING"
@@ -90,7 +91,7 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 			}
 
 			if err := h.Update(name, &instance.Spec); err != nil {
-				reqLogger.Error(err, "Update failed")
+				recLogger.Error(err, "Update failed")
 				return reconcile.Result{}, err
 			}
 		} else {
@@ -100,19 +101,19 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 			}
 
 			if err := h.Deploy(name, &instance.Spec); err != nil {
-				reqLogger.Error(err, "Install failed")
+				recLogger.Error(err, "Install failed")
 				return reconcile.Result{}, err
 			}
 		}
 
 		instance.Status.State = "INSTALLED"
 		if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
-			reqLogger.Error(err, "Update to installed status failed")
+			recLogger.Error(err, "Update to installed status failed")
 			return reconcile.Result{}, err
 		}
 	}
 
-	reqLogger.Info("Complete")
+	recLogger.Info("Complete")
 
 	// Reconciliation complete.
 	return reconcile.Result{}, nil

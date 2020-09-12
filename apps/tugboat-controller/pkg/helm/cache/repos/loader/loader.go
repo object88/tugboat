@@ -2,8 +2,9 @@ package loader
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/repoCache/queue"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos/queue"
 	"helm.sh/helm/v3/pkg/repo"
 )
 
@@ -37,7 +38,7 @@ func (l *Loader) Work(ctx context.Context, repo string) error {
 
 	index, err := l.RepoLoader.GetRepoIndexFile(repo)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load repository index file for '%s': %w", repo, err)
 	}
 
 	// Call back into cache

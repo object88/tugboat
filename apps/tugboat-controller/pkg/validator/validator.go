@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos/cache"
 	"helm.sh/helm/v3/pkg/cli"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,12 +18,14 @@ import (
 
 type V struct {
 	log      logr.Logger
+	rc       *repos.Cache
 	settings *cli.EnvSettings
 }
 
-func New(log logr.Logger, settings *cli.EnvSettings) *V {
+func New(log logr.Logger, rc *repos.Cache, settings *cli.EnvSettings) *V {
 	return &V{
 		log:      log,
+		rc:       rc,
 		settings: settings,
 	}
 }
@@ -105,30 +107,17 @@ func (v *V) mutate(ar *v1.AdmissionReview) *v1.AdmissionResponse {
 func (v *V) creationAllowed(launch *v1alpha1.Launch, resp *v1.AdmissionResponse) bool {
 	resp.Allowed = false
 
-	h := helm.New(v.log, v.settings)
-	destination, err := h.Pull(launch)
-	if err != nil {
-		resp.Result = &metav1.Status{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Status",
-				APIVersion: "v1",
-			},
-			Status:  metav1.StatusFailure,
-			Message: err.Error(),
+	if _, err := v.rc.GetChartRepository(launch.Spec.Repository); err != nil {
+		if err == cache.ErrMissingRepository {
+			return false
 		}
+		v.log.Error(err, err.Error(), "repository", launch.Spec.Repository)
 		return false
 	}
-	defer os.RemoveAll(destination)
 
-	if err := h.Lint(destination, launch); err != nil {
-		resp.Result = &metav1.Status{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Status",
-				APIVersion: "v1",
-			},
-			Status:  metav1.StatusFailure,
-			Message: err.Error(),
-		}
+	_, err := v.rc.GetChartVersion(launch.Spec.Repository, launch.Spec.Chart, launch.Spec.Version)
+	if err != nil {
+		v.log.Error(err, err.Error(), "repository", launch.Spec.Repository, "chart", launch.Spec.Chart, "version", launch.Spec.Version.String())
 		return false
 	}
 

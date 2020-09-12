@@ -1,4 +1,4 @@
-package repoCache
+package chartmuseum
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/utils"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
@@ -30,7 +31,7 @@ type StatefulTest struct {
 
 	GenerateName func(length int) string
 
-	srv *testChartMuseum
+	Srv *TestChartMuseum
 }
 
 const (
@@ -40,13 +41,15 @@ const (
 // NewStatefulTest returns a pointer to a new StatefulTest instance.  NewStatefulTest and related
 // initalization functions will panic upon failure.
 func NewStatefulTest() *StatefulTest {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	s := &StatefulTest{}
 	s.GenerateName = func(length int) string {
 		b := make([]byte, length)
-		for i := range b {
+
+		b[0] = charset[seededRand.Intn(26)]
+		for i := 1; i < len(b); i++ {
 			b[i] = charset[seededRand.Intn(len(charset))]
 		}
 		return string(b)
@@ -58,17 +61,19 @@ func NewStatefulTest() *StatefulTest {
 	s.initializeChartMuseum()
 	s.initializeChartRepository()
 
-	if err := s.createTestChart("app-foo", willMakeVersion("0.1.0")); err != nil {
+	if err := s.CreateTestChart("app-foo", utils.WillMakeVersion("0.1.0")); err != nil {
 		panic(err.Error())
 	}
 
-	s.refreshIndex()
+	s.RefreshIndex()
 
 	return s
 }
 
-func (s *StatefulTest) Run(t *testing.T) {
-	val := reflect.ValueOf(s)
+// Run looks for func of type `(target *T) Test_FOO(t *testing)`, and runs
+// them sequentially.
+func (*StatefulTest) Run(t *testing.T, target interface{}) {
+	val := reflect.ValueOf(target)
 	tval := val.Type()
 	for i := 0; i < tval.NumMethod(); i++ {
 		mval := tval.Method(i)
@@ -85,7 +90,7 @@ func (s *StatefulTest) Run(t *testing.T) {
 			t.Logf("Starting '%s'", mval.Name)
 
 			// Invoke the test
-			fn.Call([]reflect.Value{reflect.ValueOf(s), reflect.ValueOf(t)})
+			fn.Call([]reflect.Value{val, reflect.ValueOf(t)})
 			if !t.Failed() {
 				// Exit early; test was successful.
 				t.Logf("Completed '%s'", mval.Name)
@@ -97,15 +102,18 @@ func (s *StatefulTest) Run(t *testing.T) {
 	}
 }
 
+// Close stops the chart museum server and cleans up all files in the parent
+// dir
 func (s *StatefulTest) Close() error {
-	if s.srv != nil {
-		s.srv.Close()
-		s.srv = nil
+	if s.Srv != nil {
+		s.Srv.Close()
+		s.Srv = nil
 	}
-	if s.ParentDir != "" {
-		os.RemoveAll(s.ParentDir)
-		s.ParentDir = ""
-	}
+	// TODO: uncomment
+	// if s.ParentDir != "" {
+	// 	os.RemoveAll(s.ParentDir)
+	// 	s.ParentDir = ""
+	// }
 	return nil
 }
 
@@ -149,11 +157,11 @@ func (s *StatefulTest) initializeParentDir() {
 
 func (s *StatefulTest) initializeChartMuseum() {
 	var err error
-	s.srv, err = newTestChartMuseum(s.MuseumStorageDir)
+	s.Srv, err = NewTestChartMuseum(s.MuseumStorageDir)
 	if err != nil {
 		panic(err)
 	}
-	s.srv.Run()
+	s.Srv.Run()
 }
 
 func (s *StatefulTest) initializeChartRepository() {
@@ -163,7 +171,7 @@ func (s *StatefulTest) initializeChartRepository() {
 	f := repo.NewFile()
 	f.Add(&repo.Entry{
 		Name: TestRepositoryName,
-		URL:  s.srv.httpserver.URL,
+		URL:  s.Srv.HTTPServer.URL,
 	})
 	if err := f.WriteFile(s.RepositoryConfigFile, 0644); err != nil {
 		panic(fmt.Errorf("internal error: failed to write repository config '%s': %w", s.RepositoryConfigFile, err))
@@ -183,7 +191,7 @@ func (s *StatefulTest) initializeChartRepository() {
 	cr.CachePath = helmSettings.RepositoryCache
 }
 
-func (s *StatefulTest) createTestChart(chartname string, version *semver.Version) error {
+func (s *StatefulTest) CreateTestChart(chartname string, version *semver.Version) error {
 	chartdir, _ := ioutil.TempDir(s.ParentDir, chartname)
 
 	cfile := &chart.Metadata{
@@ -212,7 +220,7 @@ func (s *StatefulTest) createTestChart(chartname string, version *semver.Version
 		return fmt.Errorf("internal error: failed to package chart: %w", err)
 	}
 
-	err = s.srv.uploadArchive(packageFile)
+	err = s.Srv.UploadArchive(packageFile)
 	if err != nil {
 		return fmt.Errorf("internal error: failed to upload the archive: %w", err)
 	}
@@ -220,8 +228,8 @@ func (s *StatefulTest) createTestChart(chartname string, version *semver.Version
 	return nil
 }
 
-func (s *StatefulTest) refreshIndex() {
-	if err := s.srv.refreshIndex(); err != nil {
+func (s *StatefulTest) RefreshIndex() {
+	if err := s.Srv.RefreshIndex(); err != nil {
 		panic(fmt.Errorf("internal error: failed to refresh index: %w", err))
 	}
 }

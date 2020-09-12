@@ -5,9 +5,8 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/repoCache/loader"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos/loader"
 	"github.com/object88/tugboat/pkg/errs"
-	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/repo"
 )
 
@@ -41,22 +40,22 @@ func (c *Cache) Initialize(repoLoader loader.RepoLoader) {
 
 // AddRepository is used to add a new repository to the cache.  This will
 // grab a write-lock, so should be used before processing begins.
-func (c *Cache) AddRepository(repository string) {
+func (c *Cache) AddRepository(repository *repo.Entry) {
 	c.contentsLock.Lock()
 	defer c.contentsLock.Unlock()
 
-	if _, ok := c.contents[repository]; !ok {
+	if _, ok := c.contents[repository.Name]; !ok {
 		rc, err := NewRepoCache(&c.Config, repository)
 		if err != nil {
 			// TODO: Not sure what to do with an error here
 		}
-		c.contents[repository] = rc
+		c.contents[repository.Name] = rc
 	}
 }
 
 // Get retrieves the chart metadata from in-memory cache.  Upon a cache miss,
 // it will use the Loader to attempt to find the chart.
-func (c *Cache) Get(ctx context.Context, repository, name string, version string) (*chart.Metadata, bool, error) {
+func (c *Cache) Get(ctx context.Context, repository, name string, version string) (*repo.ChartVersion, bool, error) {
 	c.contentsLock.RLock()
 	defer c.contentsLock.RUnlock()
 
@@ -64,8 +63,19 @@ func (c *Cache) Get(ctx context.Context, repository, name string, version string
 	if !ok {
 		return nil, false, ErrMissingRepository
 	}
-	metadata, ok := rc.Get(name, version)
-	return metadata, ok, nil
+	cv, ok := rc.Get(name, version)
+	return cv, ok, nil
+}
+
+func (c *Cache) GetRepository(repository string) (*repo.Entry, error) {
+	c.contentsLock.RLock()
+	defer c.contentsLock.RUnlock()
+
+	rc, ok := c.contents[repository]
+	if !ok {
+		return nil, ErrMissingRepository
+	}
+	return rc.repository, nil
 }
 
 // Load populates a particular RepoCache from the provided index.  It aquires a
