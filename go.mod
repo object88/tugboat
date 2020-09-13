@@ -14,8 +14,8 @@ require (
 	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
 	github.com/garyburd/redigo v1.6.2 // indirect
 	github.com/gin-gonic/gin v1.6.3
-	github.com/go-logr/logr v0.1.0
-	github.com/go-logr/zapr v0.1.0
+	github.com/go-logr/logr v0.2.1
+	github.com/go-logr/zapr v0.2.0
 	github.com/go-openapi/spec v0.19.6 // indirect
 	github.com/gofrs/uuid v3.3.0+incompatible // indirect
 	github.com/golang/mock v1.4.4
