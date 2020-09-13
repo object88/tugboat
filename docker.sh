@@ -6,7 +6,6 @@ cd $(dirname "$0")
 TARGET=()
 
 export TAG=${TAG:-$(git describe --tags)-$(git rev-parse --short HEAD)}
-export PATH=$PWD/bin/:$PATH
 
 # Set defaults, allow env val to override
 BUILD_AND_RELEASE=${BUILD_AND_RELEASE:-"false"}

@@ -1,0 +1,11 @@
+name: master branch
+
+on:
+  push:
+    breanches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
