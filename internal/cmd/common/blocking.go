@@ -74,7 +74,7 @@ func Multiblock(log logr.Logger, fs ...Blocker) error {
 			err := f(ctx)
 			if err != nil {
 				errs = multierror.Append(errs, err)
-				log.Error(err, "Exited Blocker func with err", "blocker", i)
+				log.Error(err, err.Error(), "blocker", i)
 			} else {
 				log.Info("Exited Blocker func without error", "blocker", i)
 			}
