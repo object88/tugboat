@@ -44,7 +44,7 @@ require (
 	k8s.io/client-go v0.18.8
 	k8s.io/code-generator v0.18.8
 	rsc.io/letsencrypt v0.0.3 // indirect
-	sigs.k8s.io/controller-runtime v0.6.2
+	sigs.k8s.io/controller-runtime v0.6.3
 )
 
 // github.com/Azure/go-autorest/autorest has different versions for the Go
