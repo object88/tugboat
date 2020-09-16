@@ -1,62 +1,80 @@
 @startuml Create launch
 
+box "client"
 actor user
+participant helm
+end box
 box "kubernetes"
 participant kubeapi
 participant etcd
 end box
-box "launch controller"
+box "controller"
+participant clientset
 participant validatingwebhook
-participant launchreconciler
-participant helm
+participant mutatingwebbook
+participant reconciler
 end box
-database chartmuseum
 
-user -> kubeapi : kubectl apply -f launch.yaml
+user -> helm : helm upgrade -i
+activate helm
+
+helm -> kubeapi : create helm release
 activate kubeapi
 
-kubeapi -> validatingwebhook
+kubeapi -> validatingwebhook : notify helm release
 activate validatingwebhook
 
-
-validatingwebhook -> kubeapi : retrieve repository CR
+validatingwebhook -> clientset : create releasehistory
+activate clientset
+clientset -> kubeapi : create releasehistory
 activate kubeapi
-kubeapi -> validatingwebhook
-deactivate kubeapi
 
-validatingwebhook -> chartmuseum : retrieve chart
-activate chartmuseum
-chartmuseum -> validatingwebhook
-deactivate chartmuseum
-
-validatingwebhook -> kubeapi
-deactivate validatingwebhook
-
-kubeapi -> etcd : persist launch CR
+kubeapi -> etcd : persist releasehistory
 activate etcd
 etcd -> kubeapi
 deactivate etcd
 
-' User gets response
-kubeapi -> user : OK
+kubeapi -> clientset
 
-kubeapi -> launchreconciler
-activate launchreconciler
-launchreconciler -> helm
-activate helm
+clientset -> validatingwebhook
+deactivate clientset
+
+kubeapi -> reconciler : update cache
+activate reconciler
+reconciler -> kubeapi
+deactivate reconciler
+deactivate kubeapi
+
+validatingwebhook -> reconciler : ensure cache is updated
+activate reconciler
+reconciler -> validatingwebhook
+deactivate reconciler
+
+validatingwebhook -> kubeapi
+deactivate validatingwebhook
+
+kubeapi -> helm
+deactivate kubeapi
 
 loop each k8s resource
-helm -> kubeapi : deploy kubernetes resources
+helm -> kubeapi : create k8s resources
 activate kubeapi
+
+kubeapi -> mutatingwebbook : notify k8s resource
+activate mutatingwebbook
+mutatingwebbook -> kubeapi : patch helm release id
+deactivate mutatingwebbook
+
+kubeapi -> etcd : persist k8s resource
+activate etcd
+etcd -> kubeapi
+deactivate etcd
+
 kubeapi -> helm
 deactivate kubeapi
 end
 
-helm -> launchreconciler
+helm -> user
 deactivate helm
-launchreconciler -> kubeapi
-deactivate launchreconciler
-
-deactivate kubeapi
 
 @enduml

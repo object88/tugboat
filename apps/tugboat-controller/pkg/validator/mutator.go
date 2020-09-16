@@ -1,13 +1,15 @@
 package validator
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/admission/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type M struct {
@@ -32,64 +34,51 @@ func NewMutator(log logr.Logger, scheme *runtime.Scheme) *M {
 
 // Process implements WebhookProcessor
 func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
-	var obj runtime.Object
-	if err := json.Unmarshal(req.Object.Raw, &obj); err != nil {
-		m.Log.Error(err, "Could not unmarshal raw object", "name", req.Name, "namespace", req.Namespace)
-		return &v1.AdmissionResponse{
-			Allowed: false,
-			Result: &metav1.Status{
-				Status:  metav1.StatusFailure,
-				Message: err.Error(),
-			},
+	ar := &v1.AdmissionResponse{
+		Allowed: true,
+		UID:     req.UID,
+	}
+	d := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(req.Object.Raw), 4096)
+
+	ext := runtime.RawExtension{}
+	if err := d.Decode(&ext); err != nil {
+		if err != io.EOF {
+			m.Log.Error(err, "")
 		}
+		return ar
 	}
 
-	// m.Log.Info("Let it through", "name", req.Name, "namespace", req.Namespace)
-	// return &v1.AdmissionResponse{
-	// 	Allowed: true,
-	// }
-
-	switch x := obj.(type) {
-	case *corev1.Pod:
-		// Proceed
-		m.Log.Info("Have pod", "name", req.Name, "namespace", req.Namespace)
-		x.Labels["tugboat.engineering/"] = "foo"
-	default:
-		m.Log.Info("Not pod", "name", req.Name, "namespace", req.Namespace)
-		return &v1.AdmissionResponse{
-			Allowed: true,
-			UID:     req.UID,
-		}
+	unstruct := unstructured.Unstructured{
+		Object: map[string]interface{}{},
 	}
+	if err := json.Unmarshal(ext.Raw, &unstruct.Object); err != nil {
+		m.Log.Error(err, "Incoming object could not be unmarshaled; ignoring", "name", req.Name, "namespace", req.Namespace)
+		return ar
+	}
+
+	labels := unstruct.GetLabels()
+	labels["engineering.tugboat/foo"] = "bar"
+	unstruct.SetLabels(labels)
 
 	m.Log.Info("Creating patch", "name", req.Name, "namespace", req.Namespace)
 
 	pos := []patchOperation{
 		{
 			Op:    "add",
-			Path:  "/metadata/labels/tugboat.engineering/bar",
+			Path:  "/metadata/labels/tugboat.engineering~1bar",
 			Value: "foo",
 		},
 	}
 	buf, err := json.Marshal(pos)
 	if err != nil {
-		m.Log.Info("Failed to marshal patch", "name", req.Name, "namespace", req.Namespace)
-		return &v1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-			},
-		}
+		m.Log.Error(err, "Failed to marshal patch", "name", req.Name, "namespace", req.Namespace)
+		return ar
 	}
 
 	m.Log.Info("Returning response with patch", "name", req.Name, "namespace", req.Namespace)
 
-	return &v1.AdmissionResponse{
-		Allowed: true,
-		Patch:   buf,
-		PatchType: func() *v1.PatchType {
-			pt := v1.PatchTypeJSONPatch
-			return &pt
-		}(),
-		UID: req.UID,
-	}
+	pt := v1.PatchTypeJSONPatch
+	ar.Patch = buf
+	ar.PatchType = &pt
+	return ar
 }

@@ -2,8 +2,6 @@ package run
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
@@ -11,8 +9,6 @@ import (
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
-	notificationsclient "github.com/object88/tugboat/internal/notifications/client"
-	notificationscliflags "github.com/object88/tugboat/internal/notifications/cliflags"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/router"
@@ -25,7 +21,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -37,9 +32,8 @@ type command struct {
 	scheme *runtime.Scheme
 	w      watchers.Watcher
 
-	httpFlagMgr          *httpcliflags.FlagManager
-	notificationsFlagMgr *notificationscliflags.FlagManager
-	k8sFlagMgr           *k8scliflags.FlagManager
+	httpFlagMgr *httpcliflags.FlagManager
+	k8sFlagMgr  *k8scliflags.FlagManager
 }
 
 // CreateCommand returns the `run` Command
@@ -57,51 +51,40 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 				return c.execute(cmd, args)
 			},
 		},
-		CommonArgs:           ca,
-		httpFlagMgr:          httpcliflags.New(),
-		notificationsFlagMgr: notificationscliflags.New(),
-		k8sFlagMgr:           k8scliflags.New(),
+		CommonArgs:  ca,
+		httpFlagMgr: httpcliflags.New(),
+		k8sFlagMgr:  k8scliflags.New(),
 	}
 
 	flags := c.Flags()
 
 	c.httpFlagMgr.ConfigureHttpFlag(flags)
 	c.httpFlagMgr.ConfigureHttpsFlags(flags)
-	c.notificationsFlagMgr.ConfigureListenersFlag(flags)
 	c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
 
 	return common.TraverseRunHooks(&c.Command)
 }
 
 func (c *command) preexecute(cmd *cobra.Command, args []string) error {
-	targets, err := c.notificationsFlagMgr.Listeners()
-	if err != nil {
-		return fmt.Errorf("failed to get notification listeners: %w", err)
-	}
-	c.Log.Info("Listeners", "listeners", targets)
-	notifier := notificationsclient.New(c.Log)
-	if err := notifier.Connect(targets); err != nil {
-		return fmt.Errorf("failed to establish clients for notification listeners: %w", err)
-	}
+	// namespace := "default"
 
-	namespace := "default"
+	// // return watchers.New().Run(ctx, c.w)
+	// // Set default manager options
+	// options := manager.Options{
+	// 	Namespace: namespace,
+	// }
 
-	// return watchers.New().Run(ctx, c.w)
-	// Set default manager options
-	options := manager.Options{
-		Namespace: namespace,
-	}
+	// // Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
+	// // Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
+	// // Also note that you may face performance issues when using this with a high number of namespaces.
+	// // More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
+	// if strings.Contains(namespace, ",") {
+	// 	c.Log.Info(fmt.Sprintf("Using multi-namespace: %s", namespace))
+	// 	options.Namespace = ""
+	// 	options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
+	// }
 
-	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
-	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
-	// Also note that you may face performance issues when using this with a high number of namespaces.
-	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
-	if strings.Contains(namespace, ",") {
-		c.Log.Info(fmt.Sprintf("Using multi-namespace: %s", namespace))
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
-	}
-
+	var err error
 	c.scheme = runtime.NewScheme()
 	if err = apis.AddToScheme(c.scheme); err != nil {
 		return err
@@ -141,7 +124,10 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	c.w = watcher.New(c.Log, clientset, versionedclientset)
+	c.w, err = watcher.New(c.Log, clientset, versionedclientset)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
