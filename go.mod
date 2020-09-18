@@ -37,7 +37,7 @@ require (
 	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/chartmuseum v0.12.0
-	helm.sh/helm/v3 v3.3.2
+	helm.sh/helm/v3 v3.3.3
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
 	k8s.io/cli-runtime v0.18.8
@@ -55,5 +55,5 @@ replace (
 	github.com/NetEase-Object-Storage/nos-golang-sdk => github.com/karuppiah7890/nos-golang-sdk v0.0.0-20191116042345-0792ba35abcc
 	github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309
 	go.etcd.io/etcd => github.com/eddycjy/etcd v0.5.0-alpha.5.0.20200218102753-4258cdd2efdf
-	helm.sh/helm/v3 => helm.sh/helm/v3 v3.3.2
+	helm.sh/helm/v3 => helm.sh/helm/v3 v3.3.3
 )
