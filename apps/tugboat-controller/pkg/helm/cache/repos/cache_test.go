@@ -31,23 +31,23 @@ func (s *StatefulTest) Test_Cache_Repos_GetVersion(t *testing.T) {
 	helmSettings.RepositoryCache = s.RepositoryCacheDir
 	helmSettings.RepositoryConfig = s.RepositoryConfigFile
 
-	h := New()
-	err := h.Connect(WithHelmEnvSettings(helmSettings))
+	rc := New()
+	err := rc.Connect(WithHelmEnvSettings(helmSettings))
 	if err != nil {
 		t.Errorf("Internal error: failed to connect:\n\t%s\n", err.Error())
 		return
 	}
 
-	h.logger.Info("About to update repositories")
+	rc.logger.Info("About to update repositories")
 
-	if err = h.UpdateRepositories(); err != nil {
+	if err = rc.UpdateRepositories(); err != nil {
 		t.Errorf("Failed to update repositories:\n\t%s\n", err.Error())
 	}
 
-	h.logger.Info("Updated")
+	rc.logger.Info("Updated")
 
 	v := utils.WillMakeVersion("0.1.0")
-	cm, err := h.GetChartVersion(chartmuseum.TestRepositoryName, "app-foo", v)
+	cm, err := rc.GetChartVersion(chartmuseum.TestRepositoryName, "app-foo", v)
 	if err != nil {
 		t.Errorf("Failed to get chart metadata:\n\t%s\n", err.Error())
 	}

@@ -112,7 +112,7 @@ func (c *Cache) Get(reponame string, chartname string, version *semver.Version) 
 
 	destination, err := c.foo(e, chartname, version)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to form destination path for '%s-%s': %w", chartname, version, err)
 	}
 
 	if _, ok := c.lru.Get(destination); ok {
@@ -120,7 +120,7 @@ func (c *Cache) Get(reponame string, chartname string, version *semver.Version) 
 	}
 
 	if err := c.download(destination, e, chartname, version); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to download '%s-%s' to '%s': %w", chartname, version, destination, err)
 	}
 
 	c.lru.Add(destination, struct{}{})
