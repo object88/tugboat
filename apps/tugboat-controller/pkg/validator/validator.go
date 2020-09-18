@@ -9,6 +9,7 @@ import (
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos/cache"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,6 +107,11 @@ func (v *V) mutate(ar *v1.AdmissionReview) *v1.AdmissionResponse {
 
 func (v *V) creationAllowed(launch *v1alpha1.Launch, resp *v1.AdmissionResponse) bool {
 	resp.Allowed = false
+
+	if err := chartutil.ValidateReleaseName(launch.Spec.Chart); err != nil {
+		v.log.Error(err, "Launch chart name is invalid", "repository", launch.Spec.Repository, "chart", launch.Spec.Chart, "error", err)
+		return false
+	}
 
 	if _, err := v.rc.GetChartRepository(launch.Spec.Repository); err != nil {
 		if err == cache.ErrMissingRepository {
