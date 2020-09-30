@@ -4,6 +4,11 @@
 
 replicaCount: 1
 
+slack:
+  signingSecret: ""
+  token: ""
+  verification: ""
+
 image:
   repository: object88/tugboat-slack
   pullPolicy: IfNotPresent

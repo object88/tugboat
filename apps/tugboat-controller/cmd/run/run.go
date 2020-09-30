@@ -15,6 +15,8 @@ import (
 	v1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/http/router/v1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
 	"github.com/object88/tugboat/internal/cmd/common"
+	notificationsclient "github.com/object88/tugboat/internal/notifications/client"
+	notificationscliflags "github.com/object88/tugboat/internal/notifications/cliflags"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/router"
@@ -34,9 +36,10 @@ type command struct {
 	cc     *charts.Cache
 	rc     *repos.Cache
 
-	chartCacheFlagMgr *chartcachecliflags.FlagManager
-	helmFlagMgr       *helmcliflags.FlagManager
-	httpFlagMgr       *httpcliflags.FlagManager
+	chartCacheFlagMgr    *chartcachecliflags.FlagManager
+	helmFlagMgr          *helmcliflags.FlagManager
+	httpFlagMgr          *httpcliflags.FlagManager
+	notificationsFlagMgr *notificationscliflags.FlagManager
 	// k8sFlagMgr  *cliflags.FlagManager
 }
 
@@ -55,10 +58,11 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 				return c.execute(cmd, args)
 			},
 		},
-		CommonArgs:        ca,
-		chartCacheFlagMgr: chartcachecliflags.New(),
-		helmFlagMgr:       helmcliflags.New(),
-		httpFlagMgr:       httpcliflags.New(),
+		CommonArgs:           ca,
+		chartCacheFlagMgr:    chartcachecliflags.New(),
+		helmFlagMgr:          helmcliflags.New(),
+		httpFlagMgr:          httpcliflags.New(),
+		notificationsFlagMgr: notificationscliflags.New(),
 		// k8sFlagMgr:  cliflags.New(),
 	}
 
@@ -69,6 +73,7 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 	c.helmFlagMgr.ConfigureFlags(flags)
 	c.httpFlagMgr.ConfigureHttpFlag(flags)
 	c.httpFlagMgr.ConfigureHttpsFlags(flags)
+	c.notificationsFlagMgr.ConfigureListenersFlag(flags)
 	// c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
 
 	return common.TraverseRunHooks(&c.Command)
@@ -102,6 +107,16 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 	)
 	if err != nil {
 		return fmt.Errorf("failed to connect to chart cache: %w", err)
+	}
+
+	targets, err := c.notificationsFlagMgr.Listeners()
+	if err != nil {
+		return fmt.Errorf("failed to get notification listeners: %w", err)
+	}
+	c.Log.Info("Listeners", "listeners", targets)
+	notifier := notificationsclient.New(c.Log)
+	if err := notifier.Connect(targets); err != nil {
+		return fmt.Errorf("failed to establish clients for notification listeners: %w", err)
 	}
 
 	namespace := "default"
@@ -149,6 +164,7 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		Client:       c.mgr.GetClient(),
 		HelmSettings: c.helmFlagMgr.EnvSettings(),
 		Log:          c.Log.WithName("controllers").WithName("Launch"),
+		Notifier:     notifier,
 		Scheme:       c.scheme,
 	}).SetupWithManager(c.mgr); err != nil {
 		return err

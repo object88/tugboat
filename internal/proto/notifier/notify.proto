@@ -1,0 +1,19 @@
+syntax = "proto3";
+option go_package = "github.com/object88/tugboat/internal/generated/notifier";
+package notifier;
+
+message UUID {
+  string value = 1;
+}
+
+service Listener {
+  rpc OpenDeployment (StartDeploymentRequest) returns (StartDeploymentResponse) {}
+}
+
+message StartDeploymentRequest {
+  UUID id = 1;
+}
+
+message StartDeploymentResponse {
+  UUID id = 1;
+}

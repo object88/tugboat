@@ -1,8 +1,10 @@
 replicaCount: 3
 
+listeners: []
+
 image:
   repository: object88/tugboat-controller
-  pullPolicy: Always # IfNotPresent
+  pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
   env: []

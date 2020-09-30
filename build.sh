@@ -8,6 +8,7 @@ CWD=$(pwd)
 export CGO_ENABLED=0
 export GO111MODULE=on
 export GOFLAGS="-mod=vendor"
+export PATH=$CWD/bin:$PATH
 
 MISSING=()
 
@@ -27,6 +28,7 @@ check go
 # check helm
 check jq
 # check kubectl
+check protoc
 check zip
 
 if ! [ ${#MISSING[@]} -eq 0 ]; then
@@ -114,23 +116,13 @@ fi
 if [[ $DO_GEN == "true" ]]; then
   # Run go generate to generate any go generate generated go code.
   echo "Running generator"
-
-  go generate ./...
+  go generate -x ./...
+  echo ""
 fi
 
 if [[ $DO_TEST == "true" ]]; then
-  if ! [ -x $CWD/bin/mockgen ]; then
-    echo "Building mockgen"
-    time go build -o $CWD/bin/mockgen $CWD/vendor/github.com/golang/mock/mockgen
-    echo ""
-  fi
-  echo "mockgen tool checked"
-
-  # echo "Generating mock for Requester"
-  # time $CWD/bin/mockgen -destination=$CWD/mocks/mock_request.go -package=mocks github.com/object88/devex/requests Requester
-
-  echo "Generating mock for RoundTripper"
-  time $CWD/bin/mockgen -destination=$CWD/mocks/mock_httproundtripper.go -package=mocks net/http RoundTripper
+  echo "Running generator for tests"
+  go generate -tags=test -x ./...
   echo ""
 fi
 
