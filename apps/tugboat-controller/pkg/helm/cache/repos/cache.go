@@ -53,6 +53,12 @@ func (h *Cache) Connect(opts ...OptionFunc) error {
 	h.settings = ho.settings
 	h.logger = ho.logger
 	h.cache.Logger = h.logger
+	if ho.cooldown != 0 {
+		h.cache.Loader.Queue.Cooldown = ho.cooldown
+	}
+	if ho.timeout != 0 {
+		h.cache.Loader.Queue.Timeout = ho.timeout
+	}
 
 	var f *repo.File
 	if _, err := os.Stat(h.settings.RepositoryConfig); err != nil {

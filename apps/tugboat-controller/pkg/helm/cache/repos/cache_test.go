@@ -2,6 +2,7 @@ package repos
 
 import (
 	"testing"
+	"time"
 
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/chartmuseum"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/utils"
@@ -32,7 +33,11 @@ func (s *StatefulTest) Test_Cache_Repos_GetVersion(t *testing.T) {
 	helmSettings.RepositoryConfig = s.RepositoryConfigFile
 
 	rc := New()
-	err := rc.Connect(WithHelmEnvSettings(helmSettings))
+	err := rc.Connect(
+		WithCooldown(5*time.Microsecond),
+		WithHelmEnvSettings(helmSettings),
+		WithTimeout(10*time.Microsecond),
+	)
 	if err != nil {
 		t.Errorf("Internal error: failed to connect:\n\t%s\n", err.Error())
 		return
