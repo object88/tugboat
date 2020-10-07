@@ -119,6 +119,7 @@ func (h *Cache) UpdateRepositories() error {
 	// wg.Add(len(h.f.Repositories))
 
 	for _, entry := range h.f.Repositories {
+		h.logger.Info("Adding repository", "name", entry.Name)
 		h.cache.AddRepository(entry)
 	}
 
@@ -130,7 +131,7 @@ func (h *Cache) GetChartVersion(chartrepo, name string, version *semver.Version)
 	v := version.String()
 	cv, ok, err := h.cache.Get(context.Background(), chartrepo, name, v)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to find '%s/%s:%s': %w", chartrepo, name, version, err)
 	} else if !ok {
 		return nil, fmt.Errorf("Failed to find '%s/%s:%s'", chartrepo, name, version)
 	}

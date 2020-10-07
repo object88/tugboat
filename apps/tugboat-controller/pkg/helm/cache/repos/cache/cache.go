@@ -61,6 +61,7 @@ func (c *Cache) Get(ctx context.Context, repository, name string, version string
 
 	rc, ok := c.contents[repository]
 	if !ok {
+		c.Logger.Info("No repository", "reponame", repository)
 		return nil, false, ErrMissingRepository
 	}
 	cv, ok := rc.Get(name, version)

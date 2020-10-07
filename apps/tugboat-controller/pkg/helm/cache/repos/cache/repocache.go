@@ -53,9 +53,6 @@ func (rc *RepoCache) Get(name, version string) (*repo.ChartVersion, bool) {
 		r, ok := rc.contents[name]
 		if !ok {
 			rc.Logger.Info("repocache does not have chart", "repository", rc.repository, "chart", name)
-			for n := range rc.contents {
-				rc.Logger.Info("contents", "key", n)
-			}
 			return nil, false
 		}
 
@@ -119,6 +116,12 @@ func (rc *RepoCache) Load(index *repo.IndexFile) error {
 				cv: version,
 			}
 			versioncount++
+		}
+	}
+
+	for _, r := range rc.contents {
+		for _, v := range r.contents {
+			rc.Logger.Info("item", "chart", v.cv.Name, "version", v.cv.Metadata.Version)
 		}
 	}
 

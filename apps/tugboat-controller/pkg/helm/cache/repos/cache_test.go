@@ -4,13 +4,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/chartmuseum"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/utils"
+	"github.com/object88/tugboat/pkg/logging/testlogger"
 	"helm.sh/helm/v3/pkg/cli"
 )
 
 func Test_Cache_Repos(t *testing.T) {
-	s := NewStatefulTest()
+	s := NewStatefulTest(t, testlogger.TestLogger{T: t})
 	defer s.Close()
 
 	s.Run(t, s)
@@ -20,9 +22,9 @@ type StatefulTest struct {
 	*chartmuseum.StatefulTest
 }
 
-func NewStatefulTest() *StatefulTest {
+func NewStatefulTest(t *testing.T, logger logr.Logger) *StatefulTest {
 	return &StatefulTest{
-		StatefulTest: chartmuseum.NewStatefulTest(),
+		StatefulTest: chartmuseum.NewStatefulTest(t, logger),
 	}
 }
 

@@ -172,7 +172,7 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 
 func (c *command) startHTTPServer(ctx context.Context) error {
 	v := validator.New(c.Log, c.rc, c.helmFlagMgr.EnvSettings())
-	m, err := router.New(c.Log).Route(router.Defaults(v1.Defaults(c.Log, v)))
+	m, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(v1.Defaults(c.Log, v)))
 	if err != nil {
 		return err
 	}

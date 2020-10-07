@@ -119,6 +119,8 @@ func (c *Cache) Get(reponame string, chartname string, version *semver.Version) 
 		return destination, nil
 	}
 
+	c.logger.Info("tarball cache miss; downloading", "chartname", chartname, "version", version)
+
 	if err := c.download(destination, e, chartname, version); err != nil {
 		return "", fmt.Errorf("failed to download '%s-%s' to '%s': %w", chartname, version, destination, err)
 	}
@@ -131,19 +133,20 @@ func (c *Cache) Get(reponame string, chartname string, version *semver.Version) 
 func (c *Cache) download(destination string, r *repo.Entry, chartname string, version *semver.Version) error {
 	cv, err := c.repocache.GetChartVersion(r.Name, chartname, version)
 	if err != nil {
+		c.logger.Error(err, "failed to get chartversion", "error", err, "reponame", r.Name, "chartname", chartname, "version", version)
 		return err
 	}
 
 	// Get the repo URL from the repo
 	repoURL, err := url.Parse(r.URL)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to parse repository URL '%s': %w", r.URL, err)
 	}
 
 	// Get the chart URL
 	u, err := url.Parse(cv.URLs[0])
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse chart URL '%s': %w", cv.URLs[0], err)
 	}
 
 	// We need a trailing slash for ResolveReference to work, but make sure there isn't already one
@@ -155,6 +158,8 @@ func (c *Cache) download(destination string, r *repo.Entry, chartname string, ve
 	if err != nil {
 		return err
 	}
+
+	c.logger.Info("requesting chart from remote repository", "reponame", r.Name, "chartname", chartname, "chartversion", version, "URL", u)
 
 	buf, err := g.Get(
 		u.String(),

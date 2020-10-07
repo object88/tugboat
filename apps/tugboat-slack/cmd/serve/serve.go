@@ -64,7 +64,7 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 	rtr := router.New(c.Log)
 
 	return common.Block(func(ctx context.Context) error {
-		m, err := rtr.Route(router.Defaults(v1.Defaults(c.Log, c.bot)))
+		m, err := rtr.Route(router.LoggingDefaultRoute, router.Defaults(v1.Defaults(c.Log, c.bot)))
 		if err != nil {
 			return err
 		}
