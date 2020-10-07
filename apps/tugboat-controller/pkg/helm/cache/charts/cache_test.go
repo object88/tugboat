@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
@@ -43,7 +44,11 @@ func NewStatefulTest() *StatefulTest {
 	s.settings.RepositoryConfig = s.RepositoryConfigFile
 
 	s.rc = repos.New()
-	s.rc.Connect(repos.WithHelmEnvSettings(s.settings))
+	s.rc.Connect(
+		repos.WithCooldown(5*time.Microsecond),
+		repos.WithHelmEnvSettings(s.settings),
+		repos.WithTimeout(10*time.Microsecond),
+	)
 	s.rc.UpdateRepositories()
 
 	return s
