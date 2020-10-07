@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/utils"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -22,6 +23,8 @@ import (
 )
 
 type StatefulTest struct {
+	t              *testing.T
+	Logger         logr.Logger
 	ProjectRootDir string
 
 	ParentDir            string
@@ -40,11 +43,14 @@ const (
 
 // NewStatefulTest returns a pointer to a new StatefulTest instance.  NewStatefulTest and related
 // initalization functions will panic upon failure.
-func NewStatefulTest() *StatefulTest {
+func NewStatefulTest(t *testing.T, logger logr.Logger) *StatefulTest {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	s := &StatefulTest{}
+	s := &StatefulTest{
+		t:      t,
+		Logger: logger,
+	}
 	s.GenerateName = func(length int) string {
 		b := make([]byte, length)
 
@@ -64,8 +70,6 @@ func NewStatefulTest() *StatefulTest {
 	if err := s.CreateTestChart("app-foo", utils.WillMakeVersion("0.1.0")); err != nil {
 		panic(err.Error())
 	}
-
-	s.RefreshIndex()
 
 	return s
 }
@@ -109,11 +113,10 @@ func (s *StatefulTest) Close() error {
 		s.Srv.Close()
 		s.Srv = nil
 	}
-	// TODO: uncomment
-	// if s.ParentDir != "" {
-	// 	os.RemoveAll(s.ParentDir)
-	// 	s.ParentDir = ""
-	// }
+	if !s.t.Failed() && s.ParentDir != "" {
+		os.RemoveAll(s.ParentDir)
+		s.ParentDir = ""
+	}
 	return nil
 }
 
@@ -157,7 +160,7 @@ func (s *StatefulTest) initializeParentDir() {
 
 func (s *StatefulTest) initializeChartMuseum() {
 	var err error
-	s.Srv, err = NewTestChartMuseum(s.MuseumStorageDir)
+	s.Srv, err = NewTestChartMuseum(s.Logger)
 	if err != nil {
 		panic(err)
 	}
@@ -179,7 +182,6 @@ func (s *StatefulTest) initializeChartRepository() {
 
 	helmSettings := cli.New()
 	helmSettings.Debug = true
-	// helmSettings.RegistryConfig = filepath.Join(repositoryConfigDir, "registry.json")
 	helmSettings.RepositoryCache = s.RepositoryCacheDir
 	helmSettings.RepositoryConfig = s.RepositoryConfigFile
 
@@ -220,16 +222,10 @@ func (s *StatefulTest) CreateTestChart(chartname string, version *semver.Version
 		return fmt.Errorf("internal error: failed to package chart: %w", err)
 	}
 
-	err = s.Srv.UploadArchive(packageFile)
+	err = s.Srv.UploadArchive(chrt.Metadata.Name, chrt.Metadata.Version, packageFile)
 	if err != nil {
 		return fmt.Errorf("internal error: failed to upload the archive: %w", err)
 	}
 
 	return nil
-}
-
-func (s *StatefulTest) RefreshIndex() {
-	if err := s.Srv.RefreshIndex(); err != nil {
-		panic(fmt.Errorf("internal error: failed to refresh index: %w", err))
-	}
 }

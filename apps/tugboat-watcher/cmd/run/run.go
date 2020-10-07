@@ -72,7 +72,7 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
 	f0 := func(ctx context.Context) error {
-		m, err := router.New(c.Log).Route(router.Defaults())
+		m, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults())
 		if err != nil {
 			return err
 		}

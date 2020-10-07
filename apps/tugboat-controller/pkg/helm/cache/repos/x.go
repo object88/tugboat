@@ -33,6 +33,7 @@ func (h *Cache) GetRepoIndexFile(name string) (*repo.IndexFile, error) {
 
 	indexFilePath, err := cr.DownloadIndexFile()
 	if err != nil {
+		h.logger.Error(err, "failed to download index file", "repository", name, "error", err)
 		return nil, fmt.Errorf("failed to download index for chart repository '%s' at '%s': %w", cr.Config.Name, cr.Config.URL, err)
 	}
 

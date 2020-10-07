@@ -8,16 +8,18 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/chartmuseum"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/testing/utils"
+	"github.com/object88/tugboat/pkg/logging/testlogger"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
 )
 
 func Test_Cache_Charts(t *testing.T) {
-	s := NewStatefulTest()
+	s := NewStatefulTest(t, testlogger.TestLogger{T: t})
 	defer s.Close()
 
 	s.Run(t, s)
@@ -31,9 +33,9 @@ type StatefulTest struct {
 	rc       *repos.Cache
 }
 
-func NewStatefulTest() *StatefulTest {
+func NewStatefulTest(t *testing.T, logger logr.Logger) *StatefulTest {
 	s := &StatefulTest{
-		StatefulTest: chartmuseum.NewStatefulTest(),
+		StatefulTest: chartmuseum.NewStatefulTest(t, logger),
 	}
 
 	s.cachedir = filepath.Join(s.ParentDir, "tarballs")
@@ -47,9 +49,12 @@ func NewStatefulTest() *StatefulTest {
 	s.rc.Connect(
 		repos.WithCooldown(5*time.Microsecond),
 		repos.WithHelmEnvSettings(s.settings),
+		repos.WithLogger(logger),
 		repos.WithTimeout(10*time.Microsecond),
 	)
-	s.rc.UpdateRepositories()
+	if err := s.rc.UpdateRepositories(); err != nil {
+		t.Fatalf("failed to update repocache: %s", err)
+	}
 
 	return s
 }
@@ -174,7 +179,7 @@ func (s *StatefulTest) Test_Cache_Charts_GetBeyondCache(t *testing.T) {
 
 func (s *StatefulTest) Test_Cache_Charts_Unpack(t *testing.T) {
 	c := New()
-	err := c.Connect(WithCacheDepth(128), WithCacheDirectory(s.cachedir), WithHelmEnvSettings(s.settings), WithRepoCache(s.rc))
+	err := c.Connect(WithCacheDepth(128), WithCacheDirectory(s.cachedir), WithHelmEnvSettings(s.settings), WithLogger(s.Logger), WithRepoCache(s.rc))
 	if err != nil {
 		t.Errorf("Internal error: failed to connect:\n\t%s\n", err.Error())
 		return

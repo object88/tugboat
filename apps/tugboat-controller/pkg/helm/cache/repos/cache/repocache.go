@@ -53,9 +53,6 @@ func (rc *RepoCache) Get(name, version string) (*repo.ChartVersion, bool) {
 		r, ok := rc.contents[name]
 		if !ok {
 			rc.Logger.Info("repocache does not have chart", "repository", rc.repository, "chart", name)
-			for n := range rc.contents {
-				rc.Logger.Info("contents", "key", n)
-			}
 			return nil, false
 		}
 

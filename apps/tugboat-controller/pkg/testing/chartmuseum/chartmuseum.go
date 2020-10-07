@@ -2,131 +2,187 @@ package chartmuseum
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
+	"path/filepath"
 
-	"github.com/chartmuseum/storage"
-	"github.com/gin-gonic/gin"
-	"helm.sh/chartmuseum/pkg/chartmuseum/logger"
-	"helm.sh/chartmuseum/pkg/chartmuseum/router"
-	"helm.sh/chartmuseum/pkg/chartmuseum/server/multitenant"
+	"github.com/go-logr/logr"
+	"github.com/gorilla/mux"
+	"github.com/object88/tugboat/pkg/http/router"
+	"github.com/object88/tugboat/pkg/http/router/route"
+	"github.com/object88/tugboat/pkg/http/router/utils"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/repo"
+	"sigs.k8s.io/yaml"
 )
 
+// TestChartMuseum is a in-memory chart museum with extremely limited
+// capabilities: it can return a tarball and the index.yaml; no other API is
+// provided
 type TestChartMuseum struct {
-	Server *multitenant.MultiTenantServer
+	Logger logr.Logger
 
 	HTTPServer *httptest.Server
+	Router     *mux.Router
+	Contents   map[string][]byte
+	Entries    map[string]repo.ChartVersions
 
 	Requests map[string]int
 }
 
-func NewTestChartMuseum(storagepath string) (*TestChartMuseum, error) {
+// NewTestChartMuseum returns a new instance of the TestChartMuseum struct
+func NewTestChartMuseum(logger logr.Logger) (*TestChartMuseum, error) {
 	tcm := &TestChartMuseum{
+		Logger:   logger,
+		Entries:  map[string]repo.ChartVersions{},
 		Requests: map[string]int{},
+		Contents: map[string][]byte{},
 	}
 
-	lggr, err := logger.NewLogger(logger.LoggerOptions{
-		Debug:   false,
-		LogJSON: true,
-	})
+	defaultRoute := func(rtr *router.Router) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			rtr.Logger.Info("Unhandled URL", "URL", r.URL)
+			w.WriteHeader(404)
+		}
+	}
+
+	routes := []*route.Route{
+		{
+			Path:       "/",
+			Middleware: []mux.MiddlewareFunc{tcm.Track()},
+			Subroutes: []*route.Route{
+				{
+					Path: "/",
+					Handler: func(w http.ResponseWriter, r *http.Request) {
+						io.WriteString(w, "test chart museum")
+					},
+					Methods: []string{http.MethodGet},
+				},
+				{
+					Path:    "/index.yaml",
+					Handler: tcm.HandleIndex,
+					Methods: []string{http.MethodGet},
+				},
+				{
+					Path:    "/charts/{tarball}",
+					Handler: tcm.HandleTarball,
+					Methods: []string{http.MethodGet},
+				},
+			},
+		},
+	}
+
+	var err error
+	tcm.Router, err = router.New(tcm.Logger).Route(defaultRoute, routes)
 	if err != nil {
-		return nil, fmt.Errorf("Internal error: failed to create chart museum logger: %w", err)
-	}
-
-	rtr := router.NewRouter(router.RouterOptions{
-		Logger:        lggr,
-		ContextPath:   "",
-		AnonymousGet:  true,
-		Depth:         0,
-		MaxUploadSize: 1024 * 512,
-	})
-
-	rtr.Use(tcm.Track)
-
-	storageBackend := storage.NewLocalFilesystemBackend(storagepath)
-
-	options := multitenant.MultiTenantServerOptions{
-		Logger:         lggr,
-		Router:         rtr,
-		StorageBackend: storageBackend,
-		IndexLimit:     1,
-		EnableAPI:      true,
-		DisableDelete:  true,
-	}
-
-	tcm.Server, err = multitenant.NewMultiTenantServer(options)
-	if err != nil {
-		return nil, fmt.Errorf("Internal error: failed to create multi-tenant server: %w", err)
+		return nil, err
 	}
 
 	return tcm, nil
 }
 
+func (tcm *TestChartMuseum) HandleIndex(w http.ResponseWriter, r *http.Request) {
+	// Sample:
+	// apiVersion: v1
+	// entries:
+	// 	superfoo:
+	// 	- apiVersion: v2
+	// 		appVersion: 0.1.0
+	// 		created: "2020-10-03T20:29:35.28684638-07:00"
+	// 		description: test chart superfoo
+	// 		digest: ed7b69a5420e10558e94696c61cf3802946ba490fd7a508b54c27bbbdfc48256
+	// 		name: superfoo
+	// 		type: application
+	// 		urls:
+	// 		- charts/superfoo-1.2.3.tgz
+	// 		version: 1.2.3
+	// generated: "2020-10-03T20:29:35-07:00"
+	// serverInfo: {}
+
+	indexFile := repo.NewIndexFile()
+	indexFile.Entries = tcm.Entries
+
+	if buf, err := yaml.Marshal(indexFile); err != nil {
+		w.WriteHeader(400)
+	} else {
+		w.Write(buf)
+	}
+}
+
+func (tcm *TestChartMuseum) HandleTarball(w http.ResponseWriter, r *http.Request) {
+	if raw, ok := utils.ReadQueryParam(w, r, "tarball"); !ok {
+		w.WriteHeader(500)
+	} else if contents, ok := tcm.Contents[raw]; !ok {
+		tcm.Logger.Info("did not find tarball", "tarball", raw)
+		w.WriteHeader(500)
+	} else {
+		tcm.Logger.Info("going to write", "tarball", raw, "bytecount", len(contents))
+		w.Write(contents)
+	}
+}
+
+// Run starts the test HTTP server
 func (tcm *TestChartMuseum) Run() {
-	tcm.HTTPServer = httptest.NewUnstartedServer(tcm.Server.Router)
+	tcm.HTTPServer = httptest.NewUnstartedServer(tcm.Router)
 	tcm.HTTPServer.Start()
 }
 
+// Close implements io.Closer and will stop the HTTP server
 func (tcm *TestChartMuseum) Close() error {
 	tcm.HTTPServer.Close()
 	return nil
 }
 
-func (tcm *TestChartMuseum) RefreshIndex() error {
-	client := tcm.HTTPServer.Client()
-	resp, err := client.Get(tcm.HTTPServer.URL + "/index.yaml")
-	defer func() {
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
-	}()
+// UploadArchive injects a chart into the chart museum
+func (tcm *TestChartMuseum) UploadArchive(chartname string, chartversion string, packagePath string) error {
+	buf, err := ioutil.ReadFile(packagePath)
 	if err != nil {
-		return fmt.Errorf("internal error: failed to get index.yaml: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("Expected OK, got %d/%s: %s", resp.StatusCode, resp.Status, string(body))
+		return err
 	}
 
-	return nil
-}
+	tarballname := fmt.Sprintf("%s-%s.tgz", chartname, chartversion)
 
-func (tcm *TestChartMuseum) UploadArchive(packagePath string) error {
-	f, err := os.Open(packagePath)
-	if err != nil {
-		return fmt.Errorf("internal error: failed to upload chart: %w", err)
-	}
-	client := tcm.HTTPServer.Client()
-	resp, err := client.Post(tcm.HTTPServer.URL+"/api/charts", "application/tar+gzip", f)
-	defer func() {
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
-	}()
-	if err != nil {
-		return fmt.Errorf("internal error: failed to post tarball to museum: %w", err)
-	}
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("expected Created, got %d/%s: %s", resp.StatusCode, resp.Status, string(body))
+	tcm.Logger.Info("Have buffer", "bytecount", len(buf), "tarball", tarballname)
+
+	newversion := &repo.ChartVersion{
+		Metadata: &chart.Metadata{
+			APIVersion: chart.APIVersionV2,
+			Name:       chartname,
+			Version:    chartversion,
+		},
+		URLs: []string{fmt.Sprintf("/charts/%s", tarballname)},
 	}
 
-	return nil
-}
-
-func (tcm *TestChartMuseum) Track(c *gin.Context) {
-	if i, ok := tcm.Requests[c.Request.URL.Path]; !ok {
-		tcm.Requests[c.Request.URL.Path] = 1
+	tcm.Contents[filepath.Base(packagePath)] = buf
+	versions, ok := tcm.Entries[chartname]
+	if !ok {
+		tcm.Entries[chartname] = []*repo.ChartVersion{newversion}
 	} else {
-		tcm.Requests[c.Request.URL.Path] = i + 1
+		tcm.Entries[chartname] = append(versions, newversion)
 	}
-	c.Next()
+
+	return nil
+}
+
+func (tcm *TestChartMuseum) Track() mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tcm.Logger.Info("Req", "URL", r.URL)
+			p := r.URL.Path
+			if i, ok := tcm.Requests[p]; !ok {
+				tcm.Requests[p] = 1
+			} else {
+				tcm.Requests[p] = i + 1
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func (tcm *TestChartMuseum) DumpRequests() {
 	for k, v := range tcm.Requests {
-		fmt.Printf("%s: %d\n", k, v)
+		tcm.Logger.Info("", "req", k, "count", v)
 	}
 }

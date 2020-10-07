@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -9,24 +10,41 @@ import (
 	"github.com/object88/tugboat/pkg/http/router/route"
 )
 
+type DefaultRoute func(rtr *Router) http.HandlerFunc
+
+func NoopDefaultRoute(rtr *Router) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+	}
+}
+
+func LoggingDefaultRoute(rtr *Router) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rtr.Logger.Info("Unhandled route", "URL", r.URL)
+		w.WriteHeader(404)
+	}
+}
+
 type Router struct {
 	m      *mux.Router
-	logger logr.Logger
+	Logger logr.Logger
 }
 
 // New creates a new Router
 func New(logger logr.Logger) *Router {
 	rtr := &Router{
 		m:      mux.NewRouter(),
-		logger: logger,
+		Logger: logger,
 	}
 	return rtr
 }
 
-func (rtr *Router) Route(routes []*route.Route) (*mux.Router, error) {
+func (rtr *Router) Route(defaultRoute DefaultRoute, routes []*route.Route) (*mux.Router, error) {
 	if err := rtr.configureRoutes(rtr.m, routes); err != nil {
 		return nil, err
 	}
+
+	rtr.m.PathPrefix("/").HandlerFunc(defaultRoute(rtr))
 
 	rtr.reportRoutes()
 
@@ -40,7 +58,7 @@ func (rtr *Router) reportRoutes() {
 		queriesTemplates, _ := r.GetQueriesTemplates()
 		queriesRegexps, _ := r.GetQueriesRegexp()
 
-		rtr.logger.Info("Route",
+		rtr.Logger.Info("Route",
 			"name", r.GetName(),
 			"path", pathTemplate,
 			"path-regexp", pathRegexp,
@@ -96,5 +114,6 @@ func (rtr *Router) configureRoutes(base *mux.Router, routes []*route.Route) erro
 			rtr.configureRoutes(sub, r.Subroutes)
 		}
 	}
+
 	return nil
 }

@@ -34,7 +34,7 @@ func Defaults(subroutes ...[]*route.Route) []*route.Route {
 }
 
 func DefaultHandleRoot(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "shipyard")
+	io.WriteString(w, "tugboat")
 }
 
 func DefaultHandleLiveness(w http.ResponseWriter, r *http.Request) {
