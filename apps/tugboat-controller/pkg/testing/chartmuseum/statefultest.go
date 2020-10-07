@@ -71,8 +71,6 @@ func NewStatefulTest(t *testing.T, logger logr.Logger) *StatefulTest {
 		panic(err.Error())
 	}
 
-	s.RefreshIndex()
-
 	return s
 }
 
@@ -162,7 +160,7 @@ func (s *StatefulTest) initializeParentDir() {
 
 func (s *StatefulTest) initializeChartMuseum() {
 	var err error
-	s.Srv, err = NewTestChartMuseum(s.Logger) // s.MuseumStorageDir)
+	s.Srv, err = NewTestChartMuseum(s.Logger)
 	if err != nil {
 		panic(err)
 	}
@@ -184,7 +182,6 @@ func (s *StatefulTest) initializeChartRepository() {
 
 	helmSettings := cli.New()
 	helmSettings.Debug = true
-	// helmSettings.RegistryConfig = filepath.Join(repositoryConfigDir, "registry.json")
 	helmSettings.RepositoryCache = s.RepositoryCacheDir
 	helmSettings.RepositoryConfig = s.RepositoryConfigFile
 
@@ -231,10 +228,4 @@ func (s *StatefulTest) CreateTestChart(chartname string, version *semver.Version
 	}
 
 	return nil
-}
-
-func (s *StatefulTest) RefreshIndex() {
-	// if err := s.Srv.RefreshIndex(); err != nil {
-	// 	panic(fmt.Errorf("internal error: failed to refresh index: %w", err))
-	// }
 }

@@ -43,11 +43,5 @@ func (h *Cache) GetRepoIndexFile(name string) (*repo.IndexFile, error) {
 
 	h.logger.Info("loaded index file", "repository", name)
 
-	for _, e := range index.Entries {
-		for _, v := range e {
-			h.logger.Info("entry", "name", v.Name, "version", v.Version, "urls", v.URLs)
-		}
-	}
-
 	return index, nil
 }

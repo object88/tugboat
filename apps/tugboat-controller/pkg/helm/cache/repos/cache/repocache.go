@@ -119,12 +119,6 @@ func (rc *RepoCache) Load(index *repo.IndexFile) error {
 		}
 	}
 
-	for _, r := range rc.contents {
-		for _, v := range r.contents {
-			rc.Logger.Info("item", "chart", v.cv.Name, "version", v.cv.Metadata.Version)
-		}
-	}
-
 	rc.Logger.Info("repocache loaded with charts", "repository", rc.repository, "repository-count", repocount, "version-count", versioncount)
 
 	return nil
