@@ -61,6 +61,8 @@ spec:
               value: "/etc/https-secrets/server-key.pem"
             - name: TUGBOAT_HTTPS_PORT
               value: "3443"
+            - name: TUGBOAT_LISTENERS
+              value: {{ .Values.listeners }}
             {{- range $k, $v := .Values.image.env }}
             - name: $k
               value: "$v"

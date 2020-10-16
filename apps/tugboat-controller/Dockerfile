@@ -1,13 +1,13 @@
 FROM gobuild:local AS BUILD
 
-# FROM debian:buster-slim AS RELEASE
+# FROM debian:buster AS RELEASE
 FROM scratch AS RELEASE
 
 USER appuser
 
 COPY --from=BUILD "/etc/ssl/certs/ca-certificates.crt" "/etc/ssl/certs/ca-certificates.crt"
 COPY --from=BUILD "/opt/appuser/*" "/etc/"
-COPY --chown=appuser:appuser --from=BUILD   "/home/appuser" "/home/appuser"
+COPY --chown=appuser:appuser --from=BUILD "/home/appuser" "/home/appuser"
 
 CMD ["/usr/local/bin/tugboat-controller", "run", "--verbose"]
 

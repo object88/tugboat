@@ -4,9 +4,9 @@ import (
 	"context"
 
 	v1 "github.com/object88/tugboat/apps/tugboat-slack/pkg/http/router/v1"
-	"github.com/object88/tugboat/apps/tugboat-slack/pkg/slack"
-	slackcliflags "github.com/object88/tugboat/apps/tugboat-slack/pkg/slack/cliflags"
 	"github.com/object88/tugboat/internal/cmd/common"
+	"github.com/object88/tugboat/internal/slack"
+	slackcliflags "github.com/object88/tugboat/internal/slack/cliflags"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/router"

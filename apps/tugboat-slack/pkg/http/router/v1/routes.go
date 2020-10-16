@@ -6,7 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/object88/tugboat/apps/tugboat-slack/pkg/slack"
+	"github.com/object88/tugboat/internal/slack"
 	"github.com/object88/tugboat/pkg/http/router/route"
 	"github.com/object88/tugboat/pkg/logging"
 )

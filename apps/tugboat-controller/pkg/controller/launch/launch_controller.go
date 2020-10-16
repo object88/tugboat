@@ -8,6 +8,7 @@ import (
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/charts"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/predicates"
+	notificationsclient "github.com/object88/tugboat/internal/notifications/client"
 	"helm.sh/helm/v3/pkg/cli"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +30,7 @@ type ReconcileLaunch struct {
 	Scheme       *runtime.Scheme
 	HelmSettings *cli.EnvSettings
 	Cache        *charts.Cache
+	Notifier     *notificationsclient.Client
 }
 
 func (r *ReconcileLaunch) SetupWithManager(mgr ctrl.Manager) error {
@@ -95,6 +97,11 @@ func (r *ReconcileLaunch) Reconcile(request reconcile.Request) (reconcile.Result
 				return reconcile.Result{}, err
 			}
 		} else {
+
+			if err = r.Notifier.DeploymentStarted(); err != nil {
+				recLogger.Info("Failed to notify one or more listeners of started deployment", "error", err)
+			}
+
 			instance.Status.State = "INSTALLING"
 			if err = r.Client.Status().Update(context.TODO(), instance); err != nil {
 				return reconcile.Result{}, err

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-deployment
+  labels:
+    app: multicontainer
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multicontainer
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: multicontainer
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: containerone
+        image: debian:buster-slim
+        command: ["/bin/sh"]
+        args: ["-c", "sleep 30"]
+      - name: containertwo
+        image: debian:buster-slim
+        command: ["/bin/sh"]
+        args: ["-c", "sleep 3600"]

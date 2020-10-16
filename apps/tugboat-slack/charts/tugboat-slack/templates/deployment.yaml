@@ -33,6 +33,13 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: TUGBOAT_SLACK_SIGNING_SECRET
+              value: {{ .Values.slack.signingSecret }}
+            - name: TUGBOAT_SLACK_TOKEN
+              value: {{ .Values.slack.token }}
+            - name: TUGBOAT_SLACK_VERIFICATION
+              value: {{ .Values.slack.verification }}
           ports:
             - name: http
               containerPort: 80

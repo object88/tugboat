@@ -1,0 +1,31 @@
+syntax = "proto3";
+option go_package = "github.com/object88/tugboat/mocks/grpc/sample";
+package sample;
+
+message UUID {
+  string value = 1;
+}
+
+service Sample0 {
+  rpc Foo (FooRequest) returns (FooResponse) {}
+}
+
+service Sample1 {
+  rpc Bar (BarRequest) returns (BarResponse) {}
+}
+
+message FooRequest {
+  UUID id = 1;
+}
+
+message FooResponse {
+  UUID id = 1;
+}
+
+message BarRequest {
+  UUID id = 1;
+}
+
+message BarResponse {
+  UUID id = 1;
+}
