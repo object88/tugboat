@@ -1,0 +1,12 @@
+tugboatController:
+  enabled: true
+
+tugboatNotifierSlack:
+  enabled: true
+
+tugboatSlack:
+  enabled: true
+
+global:
+  image:
+    tag: ""

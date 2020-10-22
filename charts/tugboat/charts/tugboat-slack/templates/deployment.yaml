@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "tugboat-watcher.fullname" . }}
+  name: {{ include "tugboat-slack.fullname" . }}
   labels:
-    {{- include "tugboat-watcher.labels" . | nindent 4 }}
+    {{- include "tugboat-slack.labels" . | nindent 4 }}
 spec:
 {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
 {{- end }}
   selector:
     matchLabels:
-      {{- include "tugboat-watcher.selectorLabels" . | nindent 6 }}
+      {{- include "tugboat-slack.selectorLabels" . | nindent 6 }}
   template:
     metadata:
     {{- with .Values.podAnnotations }}
@@ -18,40 +18,40 @@ spec:
         {{- toYaml . | nindent 8 }}
     {{- end }}
       labels:
-        {{- include "tugboat-watcher.selectorLabels" . | nindent 8 }}
+        {{- include "tugboat-slack.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "tugboat-watcher.serviceAccountName" . }}
+      serviceAccountName: {{ include "tugboat-slack.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "object88/tugboat-slack:{{ include "image.tag" . }}"
+          imagePullPolicy: {{ include "image.pullPolicy" . }}
           env:
-            - name: TUGBOAT_PORT
-              value: "{{ .Values.service.internalPort }}"
-            {{- range $k, $v := .Values.image.env }}
-            - name: $k
-              value: "$v"
-            {{- end }}
+            - name: TUGBOAT_SLACK_SIGNING_SECRET
+              value: {{ .Values.slack.signingSecret }}
+            - name: TUGBOAT_SLACK_TOKEN
+              value: {{ .Values.slack.token }}
+            - name: TUGBOAT_SLACK_VERIFICATION
+              value: {{ .Values.slack.verification }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.internalPort }}
+              containerPort: 80
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /liveness
-              port: {{ .Values.service.internalPort }}
+              path: /
+              port: http
           readinessProbe:
             httpGet:
-              path: /readiness
-              port: {{ .Values.service.internalPort }}
+              path: /
+              port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

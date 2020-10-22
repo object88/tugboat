@@ -9,12 +9,6 @@ slack:
   token: ""
   verification: ""
 
-image:
-  repository: object88/tugboat-notifier-slack
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
-
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
@@ -42,10 +36,8 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  name: http
   type: ClusterIP
-  externalPort: 80
-  internalPort: 3000
+  port: 80
 
 ingress:
   enabled: false

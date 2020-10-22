@@ -1,5 +1,5 @@
 bin
-apps/*/charts
+charts
 docs
 internal/generated
 local

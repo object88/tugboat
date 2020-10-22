@@ -1,7 +1,8 @@
 replicaCount: 3
 
+listeners: []
+
 image:
-  repository: object88/tugboat-watcher
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -38,7 +39,10 @@ service:
   type: ClusterIP
   externalPort: 80
   internalPort: 3000
-  
+
+tls: {}
+  # serverName: ""
+
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -63,3 +67,19 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+chartsRepositories:
+  - caFile: ""
+    certFile: ""
+    keyFile: ""
+    name: stable
+    password: ""
+    url: https://kubernetes-charts.storage.googleapis.com
+    username: ""
+  - caFile: ""
+    certFile: ""
+    keyFile: ""
+    name: bitnami
+    password: ""
+    url: https://charts.bitnami.com/bitnami
+    username: ""
