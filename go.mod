@@ -26,15 +26,15 @@ require (
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
-	github.com/slack-go/slack v0.7.1
-	github.com/spf13/cobra v1.1.0
+	github.com/slack-go/slack v0.7.2
+	github.com/spf13/cobra v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.7 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc // indirect
-	google.golang.org/grpc v1.32.0
+	google.golang.org/grpc v1.33.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.0.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/yaml.v2 v2.3.0
@@ -57,5 +57,6 @@ require (
 replace (
 	github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309
 	go.etcd.io/etcd => github.com/eddycjy/etcd v0.5.0-alpha.5.0.20200218102753-4258cdd2efdf
+	gopkg.in/yaml.v2 => gopkg.in/yaml.v2 v2.2.8
 	helm.sh/helm/v3 => helm.sh/helm/v3 v3.3.4
 )
