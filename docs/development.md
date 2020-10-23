@@ -9,7 +9,6 @@ With all respect to Windows users and developers, Tugboat has not been developed
 The folder structure describes an intended for the future:
 * `/apps`: home for individual PROGRAMs
 * `/apps/PROGRAM`: top-level for a service, binary, or other non-package deliverable
-* `/apps/PROGRAM/charts/PROGRAM`: (optional) Helm chart files
 * `/apps/PROGRAM/main/main.go`: entry point
 * `/apps/PROGRAM/cmd`: (optional) typical command structure
 * `/apps/PROGRAM/pkg`: (optional) PROGRAM-specific packages
@@ -17,6 +16,8 @@ The folder structure describes an intended for the future:
 * `/bin`: (git-ignored) where PROGRAMs are compiled to
 * `/build_tools`: central build tools
 * `/build_tools/Dockerfile`: monolithic build for all PROGRAMs
+* `/charts/tugboat`: umbrella chart
+* `/charts/tugboat/charts/PROGRAM`: individual chart
 * `/internal`: shared (non-PROGRAM-specific) packages for _internal use only_; cannot be used by outside repositories
 * `/local`: (git-ignored) holds developer-owned scripts, tools, etc., for personal development
 * `/mocks`: (git-ignored) holds mocks build by `go-mock` tooling to testing purposes

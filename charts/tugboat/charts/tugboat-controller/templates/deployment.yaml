@@ -35,8 +35,8 @@ spec:
         - name: {{ template "tugboat-controller.name" . }}-init
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "object88/tugboat-controller:{{ include "image.tag" . }}"
+          imagePullPolicy: {{ include "image.pullPolicy" . }}
           command: ['/usr/local/bin/tugboat-controller']
           args: ['configure', '--verbose']
           volumeMounts:
@@ -48,7 +48,7 @@ spec:
         - name: {{ template "tugboat-controller.name" . }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "object88/tugboat-controller:{{ include "image.tag" . }}"
           imagePullPolicy: Never
           env:
             - name: TMPDIR
@@ -62,7 +62,7 @@ spec:
             - name: TUGBOAT_HTTPS_PORT
               value: "3443"
             - name: TUGBOAT_LISTENERS
-              value: {{ .Values.listeners }}
+              value: {{ join "," .Values.listeners | quote }}
             {{- range $k, $v := .Values.image.env }}
             - name: $k
               value: "$v"

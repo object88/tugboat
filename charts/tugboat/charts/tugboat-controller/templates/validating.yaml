@@ -1,6 +1,6 @@
 {{- if not .Values.tls.secretName }}
 {{ $ca := genCA "svc-cat-ca" 3650 }}
-{{ $cn := printf "tugboat-controller.%s.svc" .Release.Namespace }}
+{{ $cn := printf "%s.%s.svc" (include "tugboat-controller.fullname" .) .Release.Namespace }}
 {{ $server := genSignedCert $cn nil nil 365 $ca }}
 {{ $client := genSignedCert "" nil nil 365 $ca }}
 
