@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tugboat.fullname" . }}-controller
+  labels:
+    {{- include "tugboat.labels" . | nindent 4 }}
+    {{- include "tugboat-controller.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.tugboatController.service.type }}
+  ports:
+    - port: {{ .Values.tugboatController.service.externalPort }}
+      targetPort: {{ .Values.tugboatController.service.internalPort }}
+      protocol: TCP
+      name: http
+    - port: 443
+      targetPort: 3443
+      protocol: TCP
+      name: https
+  selector:
+    {{- include "tugboat.selectorLabels" . | nindent 4 }}
+    {{- include "tugboat-controller.selectorLabels" . | nindent 4 }}

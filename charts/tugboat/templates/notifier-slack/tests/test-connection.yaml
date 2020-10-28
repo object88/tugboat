@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "tugboat.fullname" . }}-notifier-slack-test-connection"
+  labels:
+    {{- include "tugboat.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "tugboat.fullname" . }}-notifier-slack:{{ .Values.tugboatNotifierSlack.service.internalPort }}']
+  restartPolicy: Never

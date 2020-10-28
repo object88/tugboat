@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tugboat.fullname" . }}-controller
+  labels:
+    {{- include "tugboat.labels" . | nindent 4 }}
+    {{- include "tugboat-controller.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.tugboatController.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "tugboat.selectorLabels" . | nindent 6 }}
+      {{- include "tugboat-controller.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "tugboat.selectorLabels" . | nindent 8 }}
+        {{- include "tugboat-controller.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tugboat-controller.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ template "tugboat.name" . }}-controller
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "object88/tugboat-controller:{{ include "image.tag" . }}"
+          imagePullPolicy: {{ include "image.pullPolicy" . }}
+          env:
+            - name: TMPDIR
+              value: "/home/appuser/tmp"
+            - name: TUGBOAT_HTTP_PORT
+              value: "{{ .Values.tugboatController.service.internalPort }}"
+            - name: TUGBOAT_HTTPS_CERT_FILE
+              value: "/etc/https-secrets/server-cert.pem"
+            - name: TUGBOAT_HTTPS_KEY_FILE
+              value: "/etc/https-secrets/server-key.pem"
+            - name: TUGBOAT_HTTPS_PORT
+              value: "3443"
+            {{- range $k, $v := .Values.image.env }}
+            - name: $k
+              value: "$v"
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.tugboatController.service.internalPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: {{ .Values.tugboatController.service.internalPort }}
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: {{ .Values.tugboatController.service.internalPort }}
+          resources:
+            {{- toYaml .Values.tugboatController.resources | nindent 12 }}
+          volumeMounts:
+            - name: https-secrets
+              mountPath: "/etc/https-secrets"
+              readOnly: true
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: https-secrets
+          secret:
+            secretName: {{ include "tugboat.fullname" . }}-controller
+            defaultMode: 0444
+            items:
+              - key: serverCert
+                path: "server-cert.pem"
+              - key: serverKey
+                path: "server-key.pem"

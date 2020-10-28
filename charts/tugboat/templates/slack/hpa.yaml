@@ -1,0 +1,29 @@
+{{- if .Values.tugboatSlack.autoscaling.enabled }}
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "tugboat.fullname" . }}-slack
+  labels:
+    {{- include "tugboat.labels" . | nindent 4 }}
+    {{- include "tugboat-slack.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "tugboat.fullname" . }}-slack
+  minReplicas: {{ .Values.tugboatSlack.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.tugboatSlack.autoscaling.maxReplicas }}
+  metrics:
+  {{- if .Values.tugboatSlack.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.tugboatSlack.autoscaling.targetCPUUtilizationPercentage }}
+  {{- end }}
+  {{- if .Values.tugboatSlack.autoscaling.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        targetAverageUtilization: {{ .Values.tugboatSlack.autoscaling.targetMemoryUtilizationPercentage }}
+  {{- end }}
+{{- end }}
