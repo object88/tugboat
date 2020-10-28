@@ -1,9 +1,0 @@
-apiVersion: tugboat.engineering/v1alpha1
-kind: Launch
-metadata:
-  name: launch-1
-spec:
-  repository: "bitnami"
-  chart: "redis"
-  version: "10.7.16"
-  values: ""

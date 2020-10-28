@@ -11,12 +11,17 @@ import (
 	"github.com/object88/tugboat/pkg/logging"
 )
 
-func Defaults(logger logr.Logger, v *validator.V) []*route.Route {
+func Defaults(logger logr.Logger, m *validator.M, v *validator.V) []*route.Route {
 	return []*route.Route{
 		{
 			Path:       "/v1/api",
 			Middleware: []mux.MiddlewareFunc{configureLoggingMiddleware(logger)},
 			Subroutes: []*route.Route{
+				{
+					Path:    "/mutate",
+					Handler: configureMutatingAdmission(m),
+					Methods: []string{http.MethodPost},
+				},
 				{
 					Path:    "/validate",
 					Handler: configureValidatingAdmission(v),
@@ -34,6 +39,12 @@ func configureLoggingMiddleware(logger logr.Logger) mux.MiddlewareFunc {
 			next:   next,
 		}
 		return handlers.LoggingHandler((&logging.Writer{Log: logger}).Out(), &lch)
+	}
+}
+
+func configureMutatingAdmission(m *validator.M) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		m.ProcessAdmission(w, r)
 	}
 }
 

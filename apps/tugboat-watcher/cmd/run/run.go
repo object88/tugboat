@@ -3,12 +3,13 @@ package run
 import (
 	"context"
 
-	helmcliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cliflags"
 	"github.com/object88/tugboat/apps/tugboat-watcher/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/router"
+	"github.com/object88/tugboat/pkg/k8s/cliflags"
+	k8scliflags "github.com/object88/tugboat/pkg/k8s/cliflags"
 	"github.com/object88/tugboat/pkg/k8s/watchers"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
@@ -18,9 +19,8 @@ type command struct {
 	cobra.Command
 	*common.CommonArgs
 
-	helmFlagMgr *helmcliflags.FlagManager
 	httpFlagMgr *httpcliflags.FlagManager
-	// k8sFlagMgr  *cliflags.FlagManager
+	k8sFlagMgr  *k8scliflags.FlagManager
 
 	w watchers.Watcher
 }
@@ -41,22 +41,20 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 			},
 		},
 		CommonArgs:  ca,
-		helmFlagMgr: helmcliflags.New(),
 		httpFlagMgr: httpcliflags.New(),
-		// k8sFlagMgr:  cliflags.New(),
+		k8sFlagMgr:  cliflags.New(),
 	}
 
 	flags := c.Flags()
 
-	c.helmFlagMgr.ConfigureFlags(flags)
 	c.httpFlagMgr.ConfigureHttpFlag(flags)
-	// c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
+	c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
 
 	return common.TraverseRunHooks(&c.Command)
 }
 
 func (c *command) preexecute(cmd *cobra.Command, args []string) error {
-	conf, err := c.helmFlagMgr.Client().ToRESTConfig()
+	conf, err := c.k8sFlagMgr.KubernetesConfig().ToRESTConfig()
 	if err != nil {
 		return err
 	}
@@ -65,7 +63,7 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	c.w = watcher.NewPodWatcher(c.Log, clientset)
+	c.w = watcher.New(c.Log, clientset)
 
 	return nil
 }
@@ -82,7 +80,7 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 	}
 
 	f1 := func(ctx context.Context) error {
-		wm := watchers.New()
+		wm := watchers.New(c.Log)
 		return wm.Run(ctx, c.w)
 	}
 

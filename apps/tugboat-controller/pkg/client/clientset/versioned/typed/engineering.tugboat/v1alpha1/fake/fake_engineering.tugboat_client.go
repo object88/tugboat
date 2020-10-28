@@ -15,12 +15,8 @@ type FakeTugboatV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeTugboatV1alpha1) Launches(namespace string) v1alpha1.LaunchInterface {
-	return &FakeLaunches{c, namespace}
-}
-
-func (c *FakeTugboatV1alpha1) Repositories(namespace string) v1alpha1.RepositoryInterface {
-	return &FakeRepositories{c, namespace}
+func (c *FakeTugboatV1alpha1) ReleaseHistories(namespace string) v1alpha1.ReleaseHistoryInterface {
+	return &FakeReleaseHistories{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

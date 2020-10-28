@@ -10,3 +10,4 @@ tugboatSlack:
 global:
   image:
     tag: ""
+    pullPolicy: ""

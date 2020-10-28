@@ -40,10 +40,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=tugboat.engineering, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("launches"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Tugboat().V1alpha1().Launches().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("repositories"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Tugboat().V1alpha1().Repositories().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("releasehistories"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Tugboat().V1alpha1().ReleaseHistories().Informer()}, nil
 
 	}
 

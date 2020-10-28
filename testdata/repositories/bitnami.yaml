@@ -1,7 +1,0 @@
-apiVersion: tugboat.engineering/v1alpha1
-kind: Repository
-metadata:
-  name: bitnami
-spec:
-  name: "bitnami"
-  url: "https://charts.bitnami.com/bitnami"

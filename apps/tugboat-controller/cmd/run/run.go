@@ -6,22 +6,24 @@ import (
 	"strings"
 
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/launch"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/repository"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/charts"
-	chartcachecliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/charts/cliflags"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cache/repos"
-	helmcliflags "github.com/object88/tugboat/apps/tugboat-controller/pkg/helm/cliflags"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
 	v1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/http/router/v1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
 	notificationsclient "github.com/object88/tugboat/internal/notifications/client"
 	notificationscliflags "github.com/object88/tugboat/internal/notifications/cliflags"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/router"
+	k8scliflags "github.com/object88/tugboat/pkg/k8s/cliflags"
+	"github.com/object88/tugboat/pkg/k8s/watchers"
 	"github.com/spf13/cobra"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -33,14 +35,11 @@ type command struct {
 
 	mgr    manager.Manager
 	scheme *runtime.Scheme
-	cc     *charts.Cache
-	rc     *repos.Cache
+	w      watchers.Watcher
 
-	chartCacheFlagMgr    *chartcachecliflags.FlagManager
-	helmFlagMgr          *helmcliflags.FlagManager
 	httpFlagMgr          *httpcliflags.FlagManager
 	notificationsFlagMgr *notificationscliflags.FlagManager
-	// k8sFlagMgr  *cliflags.FlagManager
+	k8sFlagMgr           *k8scliflags.FlagManager
 }
 
 // CreateCommand returns the `run` Command
@@ -59,56 +58,22 @@ func CreateCommand(ca *common.CommonArgs) *cobra.Command {
 			},
 		},
 		CommonArgs:           ca,
-		chartCacheFlagMgr:    chartcachecliflags.New(),
-		helmFlagMgr:          helmcliflags.New(),
 		httpFlagMgr:          httpcliflags.New(),
 		notificationsFlagMgr: notificationscliflags.New(),
-		// k8sFlagMgr:  cliflags.New(),
+		k8sFlagMgr:           k8scliflags.New(),
 	}
 
 	flags := c.Flags()
 
-	c.chartCacheFlagMgr.ConfigureCacheDepthFlag(flags)
-	c.chartCacheFlagMgr.ConfigureCacheDirectoryFlag(flags)
-	c.helmFlagMgr.ConfigureFlags(flags)
 	c.httpFlagMgr.ConfigureHttpFlag(flags)
 	c.httpFlagMgr.ConfigureHttpsFlags(flags)
 	c.notificationsFlagMgr.ConfigureListenersFlag(flags)
-	// c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
+	c.k8sFlagMgr.ConfigureKubernetesConfig(flags)
 
 	return common.TraverseRunHooks(&c.Command)
 }
 
 func (c *command) preexecute(cmd *cobra.Command, args []string) error {
-	c.rc = repos.New()
-	err := c.rc.Connect(
-		repos.WithHelmEnvSettings(c.helmFlagMgr.EnvSettings()),
-		repos.WithLogger(c.Log),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to connect to repo cache: %w", err)
-	}
-	if err := c.rc.UpdateRepositories(); err != nil {
-		return err
-	}
-
-	cdir, err := c.chartCacheFlagMgr.CacheDirectory()
-	if err != nil {
-		return fmt.Errorf("failed to get cache directory: %w", err)
-	}
-
-	c.cc = charts.New()
-	err = c.cc.Connect(
-		charts.WithCacheDepth(c.chartCacheFlagMgr.CacheDepth()),
-		charts.WithCacheDirectory(cdir),
-		charts.WithHelmEnvSettings(c.helmFlagMgr.EnvSettings()),
-		charts.WithLogger(c.Log),
-		charts.WithRepoCache(c.rc),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to connect to chart cache: %w", err)
-	}
-
 	targets, err := c.notificationsFlagMgr.Listeners()
 	if err != nil {
 		return fmt.Errorf("failed to get notification listeners: %w", err)
@@ -138,13 +103,22 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 	}
 
 	c.scheme = runtime.NewScheme()
-	if err := apis.AddToScheme(c.scheme); err != nil {
+	if err = apis.AddToScheme(c.scheme); err != nil {
+		return err
+	}
+	if err = clientgoscheme.AddToScheme(c.scheme); err != nil {
+		return err
+	}
+	if err = apiextv1.AddToScheme(c.scheme); err != nil {
+		return err
+	}
+	if err = apiextv1beta1.AddToScheme(c.scheme); err != nil {
 		return err
 	}
 
-	c.Log.Info("Registering launch components.")
+	c.Log.Info("Registering custom resource components.")
 
-	cfg, err := c.helmFlagMgr.Client().ToRESTConfig()
+	cfg, err := c.k8sFlagMgr.KubernetesConfig().ToRESTConfig()
 	if err != nil {
 		return err
 	}
@@ -159,36 +133,27 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := (&launch.ReconcileLaunch{
-		Cache:        c.cc,
-		Client:       c.mgr.GetClient(),
-		HelmSettings: c.helmFlagMgr.EnvSettings(),
-		Log:          c.Log.WithName("controllers").WithName("Launch"),
-		Notifier:     notifier,
-		Scheme:       c.scheme,
-	}).SetupWithManager(c.mgr); err != nil {
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
 		return err
 	}
-
-	if err := (&repository.ReconcileRepository{
-		Client:       c.mgr.GetClient(),
-		HelmSettings: c.helmFlagMgr.EnvSettings(),
-		Log:          c.Log.WithName("controllers").WithName("Repository"),
-		Scheme:       c.scheme,
-	}).SetupWithManager(c.mgr); err != nil {
+	versionedclientset, err := versioned.NewForConfig(cfg)
+	if err != nil {
 		return err
 	}
+	c.w = watcher.New(c.Log, clientset, versionedclientset)
 
 	return nil
 }
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
-	return common.Multiblock(c.Log, c.startHTTPServer, c.startManager)
+	return common.Multiblock(c.Log, c.startHTTPServer, c.startManager, c.startWatcher)
 }
 
 func (c *command) startHTTPServer(ctx context.Context) error {
-	v := validator.New(c.Log, c.rc, c.helmFlagMgr.EnvSettings())
-	m, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(v1.Defaults(c.Log, v)))
+	m := validator.NewMutator(c.Log, c.scheme)
+	v := validator.New(c.Log, c.scheme)
+	rts, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(v1.Defaults(c.Log, m, v)))
 	if err != nil {
 		return err
 	}
@@ -202,18 +167,32 @@ func (c *command) startHTTPServer(ctx context.Context) error {
 		return err
 	}
 
-	h := http.New(c.Log, m, c.httpFlagMgr.HttpPort())
+	h := http.New(c.Log, rts, c.httpFlagMgr.HttpPort())
 	if p := c.httpFlagMgr.HttpsPort(); p != 0 {
 		if err = h.ConfigureTLS(p, cf, kf); err != nil {
 			return err
 		}
 	}
+
+	c.Log.Info("starting http")
+	defer c.Log.Info("http complete")
+
 	h.Serve(ctx)
 	return nil
 }
 
 func (c *command) startManager(ctx context.Context) error {
 	// And now, run.  And wait.
-	c.Log.Info("Starting launch manager")
+	c.Log.Info("starting controller manager")
+	defer c.Log.Info("controller manager complete")
+
 	return c.mgr.Start(ctx.Done())
+}
+
+func (c *command) startWatcher(ctx context.Context) error {
+	c.Log.Info("starting watcher")
+	defer c.Log.Info("watcher complete")
+
+	wm := watchers.New(c.Log)
+	return wm.Run(ctx, c.w)
 }
