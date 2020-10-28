@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: "tugboat.engineering:launch:cdreader-read"
+  name: "tugboat.engineering:releasehistories:cdreader-read"
   labels:
     app: {{ template "tugboat-controller.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -10,7 +10,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: "tugboat.engineering:launch:reader"
+  name: "tugboat.engineering:releasehistories:reader"
 subjects:
   - kind: ServiceAccount
     name: {{ include "tugboat-controller.serviceAccountName" . }}

@@ -1,75 +1,43 @@
 package v1alpha1
 
 import (
-	"github.com/Masterminds/semver/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-type ChartReference struct {
-	Repository string          `json:"repository"`
-	Chart      string          `json:"chart"`
-	Version    *semver.Version `json:"version"`
-}
-
 // +genclient
 // +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Launch describes a launch.
-type Launch struct {
+// ReleaseHistory describes the history of the kubernetes resources described
+// in a particular release of a chart.
+type ReleaseHistory struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec LaunchSpec `json:"spec"`
+	Spec ReleaseHistorySpec `json:"spec"`
 
-	Status LaunchStatus `json:"status"`
+	Status ReleaseHistoryStatus `json:"status"`
 }
 
-// LaunchSpec is the spec for a Launch resource
-type LaunchSpec struct {
-	ChartReference `json:",inline"`
-	Values         string `json:"values,omitempty"`
+// ReleaseHistorySpec is the spec for a ReleaseHistory
+type ReleaseHistorySpec struct {
+	ReleaseName      string    `json:"releasename"`
+	ReleaseNamespace string    `json:"releasenamespace"`
+	ReleaseUID       types.UID `json:"releaseuid"`
 }
 
-// LaunchStatus is the status for a Launch resource
-type LaunchStatus struct {
-	State string `json:"state"`
+// ReleaseHistoryStatus is the status for a ReleaseHistory resource
+type ReleaseHistoryStatus struct {
+	DeployedAt metav1.Time `json:"deployedat"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// LaunchList is a list of Launch resources
-type LaunchList struct {
+// ReleaseHistoryList is a list of ReleaseHistory resources
+type ReleaseHistoryList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []Launch `json:"items"`
-}
-
-// +genclient
-// +genclient:noStatus
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// Repository describes a helm chart repository.
-type Repository struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec RepositorySpec `json:"spec"`
-}
-
-// RepositorySpec is the spec for a Repository resource
-type RepositorySpec struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// RepositoryList is a list of Repository resources
-type RepositoryList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []Repository `json:"items"`
+	Items []ReleaseHistory `json:"items"`
 }

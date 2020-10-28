@@ -31,25 +31,12 @@ spec:
       serviceAccountName: {{ include "tugboat-controller.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      initContainers:
-        - name: {{ template "tugboat-controller.name" . }}-init
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "object88/tugboat-controller:{{ include "image.tag" . }}"
-          imagePullPolicy: {{ include "image.pullPolicy" . }}
-          command: ['/usr/local/bin/tugboat-controller']
-          args: ['configure', '--verbose']
-          volumeMounts:
-            - name: helm-cache-volume
-              mountPath: /home/appuser/.cache/helm
-            - name: helm-config-volume
-              mountPath: /home/appuser/.config/helm
       containers:
         - name: {{ template "tugboat-controller.name" . }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "object88/tugboat-controller:{{ include "image.tag" . }}"
-          imagePullPolicy: Never
+          imagePullPolicy: {{ include "image.pullPolicy" . }}
           env:
             - name: TMPDIR
               value: "/home/appuser/tmp"
@@ -85,10 +72,6 @@ spec:
             - name: https-secrets
               mountPath: "/etc/https-secrets"
               readOnly: true
-            - name: helm-cache-volume
-              mountPath: /home/appuser/.cache/helm
-            - name: helm-config-volume
-              mountPath: /home/appuser/.config/helm
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -114,5 +97,3 @@ spec:
         - name: {{ template "tugboat-controller.fullname" . }}-config-volume
           configMap:
             name: {{ template "tugboat-controller.fullname" . }}-config
-        - name: helm-cache-volume
-        - name: helm-config-volume

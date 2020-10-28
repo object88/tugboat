@@ -5,18 +5,10 @@ LICENSE
 
 package v1alpha1
 
-// LaunchListerExpansion allows custom methods to be added to
-// LaunchLister.
-type LaunchListerExpansion interface{}
+// ReleaseHistoryListerExpansion allows custom methods to be added to
+// ReleaseHistoryLister.
+type ReleaseHistoryListerExpansion interface{}
 
-// LaunchNamespaceListerExpansion allows custom methods to be added to
-// LaunchNamespaceLister.
-type LaunchNamespaceListerExpansion interface{}
-
-// RepositoryListerExpansion allows custom methods to be added to
-// RepositoryLister.
-type RepositoryListerExpansion interface{}
-
-// RepositoryNamespaceListerExpansion allows custom methods to be added to
-// RepositoryNamespaceLister.
-type RepositoryNamespaceListerExpansion interface{}
+// ReleaseHistoryNamespaceListerExpansion allows custom methods to be added to
+// ReleaseHistoryNamespaceLister.
+type ReleaseHistoryNamespaceListerExpansion interface{}

@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: "tugboat.engineering:launch:reader"
+  name: "tugboat.engineering:releasehistories:reader"
   labels:
     app: {{ template "tugboat-controller.name" . }}
     chart: {{ .Chart.Name }}-{{ .Chart.Version }}
@@ -9,9 +9,8 @@ metadata:
     release: {{ .Release.Name }}
 rules:
   - apiGroups: ["tugboat.engineering"]
-    resources: ["launches", "repositories"]
+    resources: ["releasehistories"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["*"]
     resources: ["*"]
-    verbs: ["get", "list", "create", "update", "patch", "delete"]
-    # verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

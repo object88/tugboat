@@ -3,7 +3,7 @@ replicaCount: 3
 listeners: []
 
 image:
-  pullPolicy: IfNotPresent
+  pullPolicy: ""
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
   env: []
@@ -67,19 +67,3 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
-
-chartsRepositories:
-  - caFile: ""
-    certFile: ""
-    keyFile: ""
-    name: stable
-    password: ""
-    url: https://kubernetes-charts.storage.googleapis.com
-    username: ""
-  - caFile: ""
-    certFile: ""
-    keyFile: ""
-    name: bitnami
-    password: ""
-    url: https://charts.bitnami.com/bitnami
-    username: ""

@@ -25,9 +25,7 @@ check() {
 
 check git
 check go
-# check helm
 check jq
-# check kubectl
 check protoc
 check zip
 

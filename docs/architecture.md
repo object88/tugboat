@@ -2,30 +2,20 @@
 
 Tugboat consists of two primary components: `tugboat-controller` and `tugboat-watcher`.
 
-## Launch
+## ReleaseHistory
 
-The Launch custom resource (`launches.tugboat.engineering`) encapsulates a Helm deployment.
+The ReleaseHistory custom resource (`releasehistories.tugboat.engineering`) encapsulates the historic record of the kubernetes resources described by a Helm deployment.
 
 Spec:
 | Property | Type | Required | Description |
 | --- | --- | --- | --- | 
-| `chart` | string | Y | The chart name |
-| `version` | semver | Y | The chart version |
-| `repository` | URL or string | Y | Either a URL to a publically accessible chart museum, or the name of a Repository custom resource
-
-## Repository
-
-The Repository custom resource (`repositories.tugboat.engineering`) encapsulates a Helm repository.
-
-Spec:
-| Property | Type | Required | Description
-| --- | --- | --- | --- | 
-| `name` | string | Y | The local name of the repository
-| `url` | URL | Y | The URL for the repository
+| `releasename` | string | Y | The name of the Helm release |
+| `releasenamespace` | string | Y | The namespace of the Helm release |
+| `uid` | UUID | Y | The UID of the Kubernetes secret that contains the data for the Helm release |
 
 ## Tugboat Controller
 
-The tugboat controller manages `launches.tugboat.engineering` custom resources. The tugboat controller runs within the cluster that it deploys to
+The tugboat controller manages `releasehistories.tugboat.engineering` custom resources. The tugboat controller runs within the cluster that it observes.
 
 ### Validating input
 
