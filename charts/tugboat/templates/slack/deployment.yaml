@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tugboat.fullname" . }}-slack
+  labels:
+    {{- include "tugboat.labels" . | nindent 4 }}
+    {{- include "tugboat-slack.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.tugboatSlack.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "tugboat.selectorLabels" . | nindent 6 }}
+      {{- include "tugboat-slack.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "tugboat.selectorLabels" . | nindent 8 }}
+        {{- include "tugboat-slack.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tugboat-slack.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "object88/tugboat-slack:{{ include "image.tag" . }}"
+          imagePullPolicy: {{ include "image.pullPolicy" . }}
+          env:
+            - name: TUGBOAT_SLACK_SIGNING_SECRET
+              value: {{ .Values.slack.signingSecret }}
+            - name: TUGBOAT_SLACK_TOKEN
+              value: {{ .Values.slack.token }}
+            - name: TUGBOAT_SLACK_VERIFICATION
+              value: {{ .Values.slack.verification }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.tugboatNotifierSlack.service.internalPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: {{ .Values.tugboatNotifierSlack.service.internalPort }}
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: {{ .Values.tugboatNotifierSlack.service.internalPort }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

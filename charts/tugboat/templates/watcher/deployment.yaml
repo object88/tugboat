@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tugboat.fullname" . }}-watcher
+  labels:
+    {{- include "tugboat.labels" . | nindent 4 }}
+    {{- include "tugboat-watcher.labels" . | nindent 4 }}
+spec:
+{{- if not .Values.tugboatWatcher.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+{{- end }}
+  selector:
+    matchLabels:
+      {{- include "tugboat.selectorLabels" . | nindent 6 }}
+      {{- include "tugboat-watcher.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+    {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      labels:
+        {{- include "tugboat.selectorLabels" . | nindent 8 }}
+        {{- include "tugboat-watcher.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tugboat-watcher.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "object88/tugboat-watcher:{{ include "image.tag" . }}"
+          imagePullPolicy: {{ include "image.pullPolicy" . }}
+          env:
+            - name: TUGBOAT_PORT
+              value: "{{ .Values.tugboatWatcher.service.internalPort }}"
+            - name: TUGBOAT_LISTENERS
+              value: {{ join "," .Values.listeners | quote }}
+            {{- range $k, $v := .Values.tugboatWatcher.image.env }}
+            - name: $k
+              value: "$v"
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.tugboatWatcher.service.internalPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: {{ .Values.tugboatWatcher.service.internalPort }}
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: {{ .Values.tugboatWatcher.service.internalPort }}
+          resources:
+            {{- toYaml .Values.tugboatWatcher.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
