@@ -23,7 +23,7 @@ func (TestLogger) Enabled() bool {
 }
 
 func (tl TestLogger) Error(err error, msg string, args ...interface{}) {
-	tl.T.Errorf("%s: %v -- %v", msg, err, args)
+	tl.T.Logf("%s: %v -- %v", msg, err, args)
 }
 
 func (tl TestLogger) V(v int) logr.Logger {

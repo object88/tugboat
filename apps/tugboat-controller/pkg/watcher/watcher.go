@@ -2,6 +2,8 @@ package watcher
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -15,21 +17,36 @@ import (
 )
 
 const (
-	helmSecretType v1.SecretType = "helm.sh/release.v1"
+	helmSecretType      v1.SecretType = "helm.sh/release.v1"
+	helmSecretNameRegex string        = `^sh\.helm\.release\.v1\.(?P<releasename>.+)\.v[1-9][0-9]*$`
 )
 
 type Watcher struct {
-	log                logr.Logger
-	clientset          *kubernetes.Clientset
-	versionedclientset *versioned.Clientset
+	log                    logr.Logger
+	clientset              *kubernetes.Clientset
+	versionedclientset     *versioned.Clientset
+	releaseSecretName      *regexp.Regexp
+	releaseSecretNameIndex int
 }
 
-func New(log logr.Logger, clientset *kubernetes.Clientset, versionedclientset *versioned.Clientset) *Watcher {
-	return &Watcher{
-		clientset:          clientset,
-		log:                log,
-		versionedclientset: versionedclientset,
+func New(log logr.Logger, clientset *kubernetes.Clientset, versionedclientset *versioned.Clientset) (*Watcher, error) {
+	r, err := regexp.Compile(helmSecretNameRegex)
+	if err != nil {
+		return nil, fmt.Errorf("internal error; helm secret name regex failed to compile: %w", err)
 	}
+	index := r.SubexpIndex("releasename")
+	if index == -1 {
+		return nil, fmt.Errorf("internal error; failed to find 'releasename' subexp in helm secret name regex")
+	}
+
+	w := &Watcher{
+		clientset:              clientset,
+		log:                    log,
+		versionedclientset:     versionedclientset,
+		releaseSecretName:      r,
+		releaseSecretNameIndex: index,
+	}
+	return w, nil
 }
 
 func (w *Watcher) GetInformer() cache.SharedIndexInformer {
@@ -53,15 +70,39 @@ func (w *Watcher) added(obj interface{}) {
 		return
 	}
 
-	name := newScrt.GetName()
+	name, ok := newScrt.GetLabels()["name"]
+	if !ok {
+		// No label, so let's try to extract the release name from the secret name.
+		// The secret looks like "sh.helm.release.v1.[RELEASE].v[REVISION]".
+		secretname := newScrt.GetName()
+		submatches := w.releaseSecretName.FindStringSubmatch(secretname)
+		if submatches == nil {
+			// The secret name doesn't match the anticipated shape.  Log the problem
+			// and get out.
+			w.log.Error(fmt.Errorf("failed to get release name"), "secret does not have 'name' secret and secret name does not match regexp", "secretname", secretname)
+			return
+		}
+		name = submatches[w.releaseSecretNameIndex]
+	}
 	namespace := newScrt.GetNamespace()
 	uid := newScrt.GetUID()
+
+	// TODO: It's _possible_ that helm may create, destroy, and recreate a
+	// release within 1 second.  If that happens, newScret.CreationTimestamp
+	// will be reused, and we will fail to create the ReleaseHistory.  It appears
+	// that the CreationTimestamp does not have milliseconds.  This may need to
+	// be revisited.
+	historyname := fmt.Sprintf("%s-%s", name, newScrt.CreationTimestamp.Format("2006-01-02-15-04-05"))
 
 	w.log.Info("added", "name", name, "namespace", namespace, "uid", uid)
 	rh := &v1alpha1.ReleaseHistory{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      historyname,
 			Namespace: namespace,
+			Labels: map[string]string{
+				"tugboat.engineering/release-name":      name,
+				"tugboat.engineering/release-namespace": namespace,
+			},
 		},
 		Spec: v1alpha1.ReleaseHistorySpec{
 			ReleaseName:      name,
@@ -71,7 +112,7 @@ func (w *Watcher) added(obj interface{}) {
 	}
 	_, err := w.versionedclientset.TugboatV1alpha1().ReleaseHistories(namespace).Create(context.Background(), rh, metav1.CreateOptions{})
 	if err != nil {
-		w.log.Error(err, "failed to create v1alpha1.VersionHistory")
+		w.log.Error(err, "failed to create v1alpha1.ReleaseHistory")
 	}
 }
 
