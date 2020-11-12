@@ -99,6 +99,10 @@ func (w *Watcher) added(obj interface{}) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      historyname,
 			Namespace: namespace,
+			Labels: map[string]string{
+				"tugboat.engineering/release-name":      name,
+				"tugboat.engineering/release-namespace": namespace,
+			},
 		},
 		Spec: v1alpha1.ReleaseHistorySpec{
 			ReleaseName:      name,

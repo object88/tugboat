@@ -21,7 +21,7 @@ activate helm
 helm -> kubeapi : create helm release
 activate kubeapi
 
-kubeapi -> validatingwebhook : notify helm release
+kubeapi -> validatingwebhook : notify release secret
 activate validatingwebhook
 
 validatingwebhook -> clientset : create releasehistory

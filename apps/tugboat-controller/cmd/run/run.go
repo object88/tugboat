@@ -5,6 +5,7 @@ import (
 
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/listers/engineering.tugboat/v1alpha1"
 	v1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/http/router/v1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
@@ -137,7 +138,9 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 }
 
 func (c *command) startHTTPServer(ctx context.Context) error {
-	m := validator.NewMutator(c.Log, c.scheme)
+	lister := v1alpha1.NewReleaseHistoryLister(c.w.GetInformer().GetIndexer())
+
+	m := validator.NewMutator(c.Log, c.scheme, lister)
 	v := validator.New(c.Log, c.scheme)
 	rts, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(v1.Defaults(c.Log, m, v)))
 	if err != nil {

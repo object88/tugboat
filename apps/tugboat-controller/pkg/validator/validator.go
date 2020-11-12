@@ -44,7 +44,7 @@ func (v *V) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 				Message: err.Error(),
 			},
 		}
-	} else if obj.TypeMeta.APIVersion != "v1alpha1" || obj.TypeMeta.Kind != "releasehistory" {
+	} else if obj.TypeMeta.APIVersion != "tugboat.engineering/v1alpha1" || obj.TypeMeta.Kind != "ReleaseHistory" {
 		err = fmt.Errorf("Unexpected type")
 		v.Log.Error(err, "Unmarshalled object was not a releasehistory", "name", req.Name, "namespace", req.Namespace, "actualapiversion", obj.TypeMeta.APIVersion, "actualkind", obj.TypeMeta.Kind)
 		return &v1.AdmissionResponse{
