@@ -9,6 +9,7 @@ import (
 	slackcliflags "github.com/object88/tugboat/internal/slack/cliflags"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
+	"github.com/object88/tugboat/pkg/http/probes"
 	"github.com/object88/tugboat/pkg/http/router"
 	"github.com/spf13/cobra"
 )
@@ -61,16 +62,17 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 }
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
+	p := probes.New()
 	rtr := router.New(c.Log)
 
-	return common.Block(func(ctx context.Context) error {
-		m, err := rtr.Route(router.LoggingDefaultRoute, router.Defaults(v1.Defaults(c.Log, c.bot)))
+	return common.Block(c.Log, p, func(ctx context.Context, r probes.Reporter) error {
+		m, err := rtr.Route(router.LoggingDefaultRoute, router.Defaults(p, v1.Defaults(c.Log, c.bot)))
 		if err != nil {
 			return err
 		}
 
 		s := http.New(c.Log, m, c.httpFlagMgr.HttpPort())
-		s.Serve(ctx)
+		s.Serve(ctx, r)
 		return nil
 	})
 }

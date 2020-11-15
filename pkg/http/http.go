@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/object88/tugboat/pkg/http/probes"
 )
 
 type Server struct {
@@ -44,7 +45,7 @@ func (s *Server) ConfigureTLS(port int, certFile string, keyFile string) error {
 	return nil
 }
 
-func (s *Server) Serve(ctx context.Context) {
+func (s *Server) Serve(ctx context.Context, r probes.Reporter) {
 	go func() {
 		if err := s.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			s.logger.Error(err, "listen completed")
@@ -59,11 +60,16 @@ func (s *Server) Serve(ctx context.Context) {
 		}()
 	}
 
+	r.Ready()
+
 	s.logger.Info("Server Started")
 
 	// Wait for the context to wrap up.
 	select {
 	case <-ctx.Done():
+		// Context has been ended; take down the readiness probe
+		r.NotReady()
+
 		timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer func() {
 			cancel()

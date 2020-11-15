@@ -6,12 +6,14 @@ import (
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/listers/engineering.tugboat/v1alpha1"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/releasehistory"
 	v1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/http/router/v1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
+	"github.com/object88/tugboat/pkg/http/probes"
 	"github.com/object88/tugboat/pkg/http/router"
 	k8scliflags "github.com/object88/tugboat/pkg/k8s/cliflags"
 	"github.com/object88/tugboat/pkg/k8s/watchers"
@@ -35,6 +37,8 @@ type command struct {
 
 	httpFlagMgr *httpcliflags.FlagManager
 	k8sFlagMgr  *k8scliflags.FlagManager
+
+	probe *probes.Probe
 }
 
 // CreateCommand returns the `run` Command
@@ -130,19 +134,21 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	c.probe = probes.New()
+
 	return nil
 }
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
-	return common.Multiblock(c.Log, c.startHTTPServer, c.startManager, c.startWatcher)
+	return common.Multiblock(c.Log, c.probe, c.startHTTPServer, c.startManager, c.startWatcher)
 }
 
-func (c *command) startHTTPServer(ctx context.Context) error {
+func (c *command) startHTTPServer(ctx context.Context, r probes.Reporter) error {
 	lister := v1alpha1.NewReleaseHistoryLister(c.w.GetInformer().GetIndexer())
 
 	m := validator.NewMutator(c.Log, c.scheme, lister)
 	v := validator.New(c.Log, c.scheme)
-	rts, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(v1.Defaults(c.Log, m, v)))
+	rts, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(c.probe, v1.Defaults(c.Log, m, v)))
 	if err != nil {
 		return err
 	}
@@ -166,22 +172,31 @@ func (c *command) startHTTPServer(ctx context.Context) error {
 	c.Log.Info("starting http")
 	defer c.Log.Info("http complete")
 
-	h.Serve(ctx)
+	h.Serve(ctx, r)
 	return nil
 }
 
-func (c *command) startManager(ctx context.Context) error {
+func (c *command) startManager(ctx context.Context, r probes.Reporter) error {
 	// And now, run.  And wait.
 	c.Log.Info("starting controller manager")
 	defer c.Log.Info("controller manager complete")
 
+	if err := (&releasehistory.ReconcileReleaseHistory{
+		Client:   c.mgr.GetClient(),
+		Log:      c.Log,
+		Scheme:   c.scheme,
+		Reporter: r,
+	}).SetupWithManager(c.mgr); err != nil {
+		return err
+	}
+
 	return c.mgr.Start(ctx.Done())
 }
 
-func (c *command) startWatcher(ctx context.Context) error {
+func (c *command) startWatcher(ctx context.Context, r probes.Reporter) error {
 	c.Log.Info("starting watcher")
 	defer c.Log.Info("watcher complete")
 
 	wm := watchers.New(c.Log)
-	return wm.Run(ctx, c.w)
+	return wm.Run(ctx, r, c.w)
 }
