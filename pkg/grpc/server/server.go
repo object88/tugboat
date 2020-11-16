@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/object88/tugboat/pkg/http/probes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
@@ -41,7 +42,7 @@ func New(logger logr.Logger, port uint, registers ...Handler) (*Server, error) {
 }
 
 // Serve initiates the plugin.
-func (s *Server) Serve(ctx context.Context) error {
+func (s *Server) Serve(ctx context.Context, r probes.Reporter) error {
 	for _, h := range s.registerFuncs {
 		if err := h.Register(s.S, s.logger); err != nil {
 			return fmt.Errorf("failed to register gRPC handler: %w", err)
@@ -57,10 +58,15 @@ func (s *Server) Serve(ctx context.Context) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 
+	r.Ready()
+
 	go func() {
 		s.logger.Info("Starting gRPC server")
 		err := s.S.Serve(lis)
 		s.logger.Info("gRPC server stopped", "err", err)
+
+		r.NotReady()
+
 		errCh <- err
 	}()
 

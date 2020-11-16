@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/object88/tugboat/mocks"
 	"github.com/object88/tugboat/mocks/grpc/sample"
+	"github.com/object88/tugboat/pkg/http/probes"
 	"github.com/object88/tugboat/pkg/logging/testlogger"
 	"google.golang.org/grpc"
 )
@@ -61,7 +62,9 @@ func Test_GRPC_Server(t *testing.T) {
 				t.Errorf("Received unexpected error: %s", err.Error())
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Nanosecond)
-			s.Serve(ctx)
+			p := probes.New()
+			p.SetCapacity(1)
+			s.Serve(ctx, p.Reporter(0))
 			defer cancel()
 		})
 	}
@@ -106,7 +109,9 @@ func Test_GRPC_Server_OneClient(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		s.Serve(ctx)
+		p := probes.New()
+		p.SetCapacity(1)
+		s.Serve(ctx, p.Reporter(0))
 	}()
 
 	cc, err := grpc.Dial(":4000", grpc.WithInsecure(), grpc.WithBlock())
@@ -132,7 +137,9 @@ func Test_GRPC_Server_TwoClients(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		s.Serve(ctx)
+		p := probes.New()
+		p.SetCapacity(1)
+		s.Serve(ctx, p.Reporter(0))
 	}()
 
 	cc, _ := grpc.Dial(":4000", grpc.WithInsecure(), grpc.WithBlock())

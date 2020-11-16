@@ -10,6 +10,7 @@ import (
 	notificationscliflags "github.com/object88/tugboat/internal/notifications/cliflags"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
+	"github.com/object88/tugboat/pkg/http/probes"
 
 	"github.com/object88/tugboat/pkg/http/router"
 	"github.com/object88/tugboat/pkg/k8s/cliflags"
@@ -86,20 +87,22 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 }
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
-	f0 := func(ctx context.Context) error {
-		m, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults())
+	p := probes.New()
+
+	f0 := func(ctx context.Context, r probes.Reporter) error {
+		m, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(p))
 		if err != nil {
 			return err
 		}
 
-		http.New(c.Log, m, c.httpFlagMgr.HttpPort()).Serve(ctx)
+		http.New(c.Log, m, c.httpFlagMgr.HttpPort()).Serve(ctx, r)
 		return nil
 	}
 
-	f1 := func(ctx context.Context) error {
+	f1 := func(ctx context.Context, r probes.Reporter) error {
 		wm := watchers.New(c.Log)
-		return wm.Run(ctx, c.w)
+		return wm.Run(ctx, r, c.w)
 	}
 
-	return common.Multiblock(c.Log, f0, f1)
+	return common.Multiblock(c.Log, p, f0, f1)
 }

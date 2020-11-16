@@ -12,6 +12,7 @@ import (
 	"github.com/object88/tugboat/pkg/grpc/server"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
+	"github.com/object88/tugboat/pkg/http/probes"
 	"github.com/object88/tugboat/pkg/http/router"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +25,8 @@ type command struct {
 	httpFlagMgr  *httpcliflags.FlagManager
 	slackFlagMgr *slackcliflags.FlagManager
 
-	bot *slack.Bot
+	bot   *slack.Bot
+	probe *probes.Probe
 }
 
 // CreateCommand returns the `run` Command
@@ -63,24 +65,26 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 	c.bot = slack.New(&cfg)
 	c.bot.Logger = c.Log
 
+	c.probe = probes.New()
+
 	return nil
 }
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
-	return common.Multiblock(c.Log, c.startGRPCServer, c.startHTTPServer)
+	return common.Multiblock(c.Log, c.probe, c.startGRPCServer, c.startHTTPServer)
 }
 
-func (c *command) startGRPCServer(ctx context.Context) error {
+func (c *command) startGRPCServer(ctx context.Context, r probes.Reporter) error {
 	g, err := server.New(c.Log, c.grpcFlagMgr.GRPCPort(), notification.New(c.Log, c.bot))
 	if err != nil {
 		return err
 	}
 
-	return g.Serve(ctx)
+	return g.Serve(ctx, r)
 }
 
-func (c *command) startHTTPServer(ctx context.Context) error {
-	m, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(v1.Defaults(c.Log, c.bot)))
+func (c *command) startHTTPServer(ctx context.Context, r probes.Reporter) error {
+	m, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(c.probe, v1.Defaults(c.Log, c.bot)))
 	if err != nil {
 		return err
 	}
@@ -100,6 +104,6 @@ func (c *command) startHTTPServer(ctx context.Context) error {
 			return err
 		}
 	}
-	h.Serve(ctx)
+	h.Serve(ctx, r)
 	return nil
 }
