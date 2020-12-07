@@ -60,6 +60,6 @@ type LogContextHandler struct {
 }
 
 func (lch *LogContextHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	creq := req.WithContext(logging.ToContext(req.Context(), lch.logger))
+	creq := req.WithContext(logr.NewContext(req.Context(), lch.logger))
 	lch.next.ServeHTTP(w, creq)
 }

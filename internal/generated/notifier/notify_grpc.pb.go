@@ -61,7 +61,7 @@ type UnsafeListenerServer interface {
 	mustEmbedUnimplementedListenerServer()
 }
 
-func RegisterListenerServer(s *grpc.Server, srv ListenerServer) {
+func RegisterListenerServer(s grpc.ServiceRegistrar, srv ListenerServer) {
 	s.RegisterService(&_Listener_serviceDesc, srv)
 }
 

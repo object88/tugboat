@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/internal/slack/config"
-	"github.com/object88/tugboat/pkg/logging"
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 )
@@ -45,7 +44,7 @@ func (b *Bot) ProcessSecurity(sv *slack.SecretsVerifier) error {
 }
 
 func (b *Bot) ProcessEventCommand(w http.ResponseWriter, r *http.Request) {
-	logger := logging.FromContext(r.Context())
+	logger := logr.FromContext(r.Context())
 	sv, err := b.PreprocessSecurity(r)
 	if err != nil {
 		logger.Error(err, "internal error: failed to set up to verify secrets")
