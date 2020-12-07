@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -28,6 +29,9 @@ func Multiblock(log logr.Logger, p *probes.Probe, fs ...Blocker) error {
 
 	// First reporter is for us.
 	r := p.Reporter(0)
+	if r == nil {
+		return fmt.Errorf("failed to get reporter for multiblock")
+	}
 	r.Ready()
 
 	// Trap OS system signals.

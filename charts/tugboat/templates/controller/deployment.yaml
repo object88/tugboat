@@ -84,10 +84,10 @@ spec:
       volumes:
         - name: https-secrets
           secret:
-            secretName: {{ include "tugboat.fullname" . }}-controller
+            secretName: tugboat-tls-secret
             defaultMode: 0444
             items:
-              - key: serverCert
+              - key: tls.crt
                 path: "server-cert.pem"
-              - key: serverKey
+              - key: tls.key
                 path: "server-key.pem"
