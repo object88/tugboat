@@ -1,22 +1,3 @@
-{{- if not .Values.tugboatController.tls.secretName }}
-{{ $ca := genCA "svc-cat-ca" 3650 }}
-{{ $cn := printf "%s-controller.%s.svc" (include "tugboat.fullname" .) .Release.Namespace }}
-{{ $server := genSignedCert $cn nil (list $cn) 365 $ca }}
-{{ $client := genSignedCert "" nil nil 365 $ca }}
-
-apiVersion: v1
-kind: Secret
-metadata:
-  name: {{ template "tugboat.fullname" . }}-controller
-  labels:
-    {{- include "tugboat.labels" . | nindent 4 }}
-data:
-  caCert: {{ b64enc $ca.Cert }}
-  clientCert: {{ b64enc $client.Key }}
-  clientKey: {{ b64enc $client.Cert }}
-  serverCert: {{ b64enc $server.Cert }}
-  serverKey: {{ b64enc $server.Key }}
----
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -32,7 +13,7 @@ webhooks:
         name: {{ include "tugboat.fullname" . }}-controller
         namespace: {{ .Release.Namespace }}
         path: /v1/api/mutate
-      caBundle: {{ b64enc $ca.Cert }}
+      caBundle: {{ .Values.network.caBundle }}
     rules:
       - operations: ["CREATE"]
         apiGroups: [""]
@@ -65,7 +46,7 @@ webhooks:
         name: {{ include "tugboat.fullname" . }}-controller
         namespace: {{ .Release.Namespace }}
         path: /v1/api/validate
-      caBundle: {{ b64enc $ca.Cert }}
+      caBundle: {{ .Values.network.caBundle }}
     rules:
       - operations: ["CREATE", "UPDATE"]
         apiGroups: ["tugboat.engineering"]
@@ -74,4 +55,3 @@ webhooks:
     failurePolicy: Fail
     sideEffects: "None"
     admissionReviewVersions: ["v1"]
-{{ end }}

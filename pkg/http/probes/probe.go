@@ -59,7 +59,7 @@ func (p *Probe) SetCapacity(cap int) error {
 
 // Reporter returns a Reporter interface
 func (p *Probe) Reporter(index int) Reporter {
-	if index < 1 || index >= p.cap {
+	if index < 0 || index >= p.cap {
 		return nil
 	}
 	return &reporter{

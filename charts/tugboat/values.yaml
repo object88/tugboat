@@ -6,6 +6,9 @@ slack:
   token: ""
   verification: ""
 
+network:
+  caBundle: ""
+
 nameOverride: ""
 fullnameOverride: ""
 
