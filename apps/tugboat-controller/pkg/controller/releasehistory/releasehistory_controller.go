@@ -38,12 +38,12 @@ func (r *ReconcileReleaseHistory) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func (r *ReconcileReleaseHistory) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileReleaseHistory) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	recLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	recLogger.Info("Reconciling ReleaseHistory")
 
 	instance := &v1alpha1.ReleaseHistory{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		// There was an error processing the request; requeue
 		if !errors.IsNotFound(err) {

@@ -47,7 +47,7 @@ func Test_markReleaseHistoryUninstalled(t *testing.T) {
 	rs := &ReconcileSecret{
 		VersionedClient: fake.NewSimpleClientset(rel),
 	}
-	err := rs.markReleaseHistoryUninstalled(s)
+	err := rs.markReleaseHistoryUninstalled(context.TODO(), s)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err.Error())
 	}
@@ -71,7 +71,7 @@ func Test_Reconcile_SecretWithoutFinalizer(t *testing.T) {
 		VersionedClient: fake.NewSimpleClientset(rel),
 	}
 
-	if result, err := rs.Reconcile(req); err != nil {
+	if result, err := rs.Reconcile(context.TODO(), req); err != nil {
 		t.Fatalf("Unexpected error while reconciling: %s", err.Error())
 	} else if result.Requeue {
 		t.Errorf("Unexpectedly set to requeue")
@@ -94,7 +94,7 @@ func Test_Reconcile_SecretWithFinalizer(t *testing.T) {
 		VersionedClient: fake.NewSimpleClientset(rel),
 	}
 
-	if result, err := rs.Reconcile(req); err != nil {
+	if result, err := rs.Reconcile(context.TODO(), req); err != nil {
 		t.Fatalf("Unexpected error while reconciling: %s", err.Error())
 	} else if result.Requeue {
 		t.Errorf("Unexpectedly set to requeue")
@@ -117,7 +117,7 @@ func Test_Reconcile_DeletedSecretWithFinalizer(t *testing.T) {
 		VersionedClient: fake.NewSimpleClientset(rel),
 	}
 
-	result, err := rs.Reconcile(req)
+	result, err := rs.Reconcile(context.TODO(), req)
 	if err != nil {
 		t.Errorf("Unexpected error: %s", err.Error())
 	}
@@ -195,11 +195,8 @@ func getReleaseHistoryFromFakeClient(t *testing.T, c versioned.Interface, origin
 
 func getSecretFromFakeClient(t *testing.T, c client.Client, original *v1.Secret) *v1.Secret {
 	actual := &v1.Secret{}
-	key, err := client.ObjectKeyFromObject(original)
-	if err != nil {
-		t.Fatalf("Unexpected error getting key for secret: %s", err.Error())
-	}
-	if err = c.Get(context.TODO(), key, actual); err != nil {
+	key := client.ObjectKeyFromObject(original)
+	if err := c.Get(context.TODO(), key, actual); err != nil {
 		t.Fatalf("Unexpected error getting secret back after test: %s", err.Error())
 	}
 	return actual

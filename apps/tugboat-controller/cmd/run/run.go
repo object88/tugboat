@@ -214,7 +214,7 @@ func (c *command) startManager(ctx context.Context, r probes.Reporter) error {
 
 	r.Ready()
 
-	return c.mgr.Start(ctx.Done())
+	return c.mgr.Start(ctx)
 }
 
 func (c *command) startWatcher(ctx context.Context, r probes.Reporter) error {
