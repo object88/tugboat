@@ -27,9 +27,7 @@ func Test_Validator_BadRequest(t *testing.T) {
 
 	rh := v1alpha1.ReleaseHistory{
 		Spec: v1alpha1.ReleaseHistorySpec{
-			ReleaseName:      "foo",
-			ReleaseNamespace: "bar",
-			ReleaseUID:       "123",
+			ReleaseName: "foo",
 		},
 	}
 	var rlbuf bytes.Buffer

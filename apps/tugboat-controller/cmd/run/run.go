@@ -7,6 +7,7 @@ import (
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/listers/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/releasehistory"
+	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/secret"
 	v1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/http/router/v1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
@@ -21,8 +22,10 @@ import (
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/dynamic"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -31,9 +34,12 @@ type command struct {
 	cobra.Command
 	*common.CommonArgs
 
-	mgr    manager.Manager
-	scheme *runtime.Scheme
-	w      watchers.Watcher
+	dyn                dynamic.Interface
+	mapper             *restmapper.DeferredDiscoveryRESTMapper
+	mgr                manager.Manager
+	scheme             *runtime.Scheme
+	versionedclientset *versioned.Clientset
+	w                  watchers.Watcher
 
 	httpFlagMgr *httpcliflags.FlagManager
 	k8sFlagMgr  *k8scliflags.FlagManager
@@ -104,9 +110,11 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	getter := c.k8sFlagMgr.KubernetesConfig()
+
 	c.Log.Info("Registering custom resource components.")
 
-	cfg, err := c.k8sFlagMgr.KubernetesConfig().ToRESTConfig()
+	cfg, err := getter.ToRESTConfig()
 	if err != nil {
 		return err
 	}
@@ -121,18 +129,24 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	clientset, err := kubernetes.NewForConfig(cfg)
+	c.versionedclientset, err = versioned.NewForConfig(cfg)
 	if err != nil {
 		return err
 	}
-	versionedclientset, err := versioned.NewForConfig(cfg)
+	c.w, err = watcher.New(c.Log, c.versionedclientset)
 	if err != nil {
 		return err
 	}
-	c.w, err = watcher.New(c.Log, clientset, versionedclientset)
+
+	dc, err := getter.ToDiscoveryClient()
 	if err != nil {
 		return err
 	}
+	c.dyn, err = dynamic.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
+	c.mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
 	c.probe = probes.New()
 
@@ -146,9 +160,10 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 func (c *command) startHTTPServer(ctx context.Context, r probes.Reporter) error {
 	lister := v1alpha1.NewReleaseHistoryLister(c.w.GetInformer().GetIndexer())
 
-	m := validator.NewMutator(c.Log, c.scheme, lister)
+	m := validator.NewMutator(c.Log, c.scheme, lister, c.dyn, c.mapper)
 	v := validator.New(c.Log, c.scheme)
-	rts, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(c.probe, v1.Defaults(c.Log, m, v)))
+	v2 := validator.NewV2(c.Log, c.scheme, c.versionedclientset, lister)
+	rts, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(c.probe, v1.Defaults(c.Log, m, v, v2)))
 	if err != nil {
 		return err
 	}
@@ -182,13 +197,22 @@ func (c *command) startManager(ctx context.Context, r probes.Reporter) error {
 	defer c.Log.Info("controller manager complete")
 
 	if err := (&releasehistory.ReconcileReleaseHistory{
-		Client:   c.mgr.GetClient(),
-		Log:      c.Log,
-		Scheme:   c.scheme,
-		Reporter: r,
+		Client: c.mgr.GetClient(),
+		Log:    c.Log,
+		Scheme: c.scheme,
 	}).SetupWithManager(c.mgr); err != nil {
 		return err
 	}
+
+	if err := (&secret.ReconcileSecret{
+		Client:          c.mgr.GetClient(),
+		VersionedClient: c.versionedclientset,
+		Log:             c.Log,
+	}).SetupWithManager(c.mgr); err != nil {
+		return err
+	}
+
+	r.Ready()
 
 	return c.mgr.Start(ctx.Done())
 }

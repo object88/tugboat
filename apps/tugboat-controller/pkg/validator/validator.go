@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// V ensures that an incoming ReleaseHistory is properly shaped
 type V struct {
 	Webhook
 	scheme *runtime.Scheme
@@ -56,81 +57,9 @@ func (v *V) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 		}
 	}
 
+	v.Log.Info("Validated incoming releasehistory", "name", req.Name, "namespace", req.Namespace)
 	return &v1.AdmissionResponse{
 		Allowed: true,
 		UID:     req.UID,
 	}
 }
-
-// func (v *V) ProcessAdmission(w http.ResponseWriter, r *http.Request) {
-// 	var body []byte
-// 	if r.Body != nil {
-// 		if data, err := ioutil.ReadAll(r.Body); err == nil {
-// 			body = data
-// 		}
-// 	}
-// 	if len(body) == 0 {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 	}
-
-// 	admissionCodecs := serializer.NewCodecFactory(runtime.NewScheme())
-
-// 	var reviewResponse *v1.AdmissionResponse
-// 	ar := v1.AdmissionReview{}
-// 	if _, _, err := admissionCodecs.UniversalDeserializer().Decode(body, nil, &ar); err != nil {
-// 		reviewResponse = &v1.AdmissionResponse{
-// 			Result: &metav1.Status{
-// 				Message: err.Error(),
-// 			},
-// 		}
-// 	} else {
-// 		reviewResponse = v.mutate(&ar)
-// 	}
-
-// 	response := v1.AdmissionReview{
-// 		TypeMeta: ar.TypeMeta,
-// 		Response: reviewResponse,
-// 	}
-
-// 	// reset the Object and OldObject, they are not needed in a response.
-// 	ar.Request.Object = runtime.RawExtension{}
-// 	ar.Request.OldObject = runtime.RawExtension{}
-
-// 	if err := json.NewEncoder(w).Encode(response); err != nil {
-// 		v.log.Error(err, "failed to write response")
-// 	}
-// }
-
-// // main mutation process
-// func (v *V) mutate(ar *v1.AdmissionReview) *v1.AdmissionResponse {
-// 	req := ar.Request
-
-// 	allowed := true
-// 	resp := &v1.AdmissionResponse{
-// 		UID: ar.Request.UID,
-// 	}
-// 	switch req.Operation {
-// 	case v1.Create:
-// 		allowed = v.creationAllowed(resp)
-// 	case v1.Update:
-// 		// determine whether to perform mutation
-// 		allowed = mutationAllowed()
-// 	default:
-// 		// Let it pass
-// 	}
-
-// 	if !allowed {
-// 		v.log.Info("Validation failed due to policy check", "operation", req.Operation)
-// 		return resp
-// 	}
-
-// 	return resp
-// }
-
-// func (v *V) creationAllowed(resp *v1.AdmissionResponse) bool {
-// 	return true
-// }
-
-// func mutationAllowed() bool {
-// 	return true
-// }

@@ -18,17 +18,22 @@ spec:
             spec:
               type: object
               properties:
-                releaseuid:
-                  type: string
                 releasename:
-                  type: string
-                releasenamespace:
                   type: string
             status:
               type: object
               properties:
                 deployedat:
                   type: string
+                revisions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      revision:
+                        type: integer
+                      deployedat:
+                        type: string
       subresources:
         status: {}
       additionalPrinterColumns:
@@ -37,7 +42,7 @@ spec:
           jsonPath: .spec.releasename
         - name: releasenamespace
           type: string
-          jsonPath: .spec.releasenamespace
+          jsonPath: .metadata.namespace
         - name: Age
           type: date
           jsonPath: .metadata.creationTimestamp

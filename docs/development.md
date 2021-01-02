@@ -17,7 +17,6 @@ The folder structure describes an intended for the future:
 * `/build_tools`: central build tools
 * `/build_tools/Dockerfile`: monolithic build for all PROGRAMs
 * `/charts/tugboat`: umbrella chart
-* `/charts/tugboat/charts/PROGRAM`: individual chart
 * `/internal`: shared (non-PROGRAM-specific) packages for _internal use only_; cannot be used by outside repositories
 * `/local`: (git-ignored) holds developer-owned scripts, tools, etc., for personal development
 * `/mocks`: (git-ignored) holds mocks build by `go-mock` tooling to testing purposes
