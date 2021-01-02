@@ -4,14 +4,23 @@ Tugboat consists of two primary components: `tugboat-controller` and `tugboat-wa
 
 ## ReleaseHistory
 
-The ReleaseHistory custom resource (`releasehistories.tugboat.engineering`) encapsulates the historic record of the kubernetes resources described by a Helm deployment.
+The ReleaseHistory custom resource (`releasehistories.tugboat.engineering`) encapsulates the historic record of the kubernetes resources described by a Helm deployment.  It lives in the same namespace as the helm release itself.
 
 Spec:
 | Property | Type | Required | Description |
-| --- | --- | --- | --- | 
+| --- | --- | --- | --- |
 | `releasename` | string | Y | The name of the Helm release |
-| `releasenamespace` | string | Y | The namespace of the Helm release |
-| `uid` | UUID | Y | The UID of the Kubernetes secret that contains the data for the Helm release |
+
+Status
+| Property | Type | Description |
+| --- | --- | --- |
+| `active` | bool | Indicates whether the chart is still deployed
+| `events` | []Event | 
+
+Event
+| Property | Type | Description |
+| --- | --- | --- |
+
 
 ## Tugboat Controller
 

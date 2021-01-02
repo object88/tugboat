@@ -6,7 +6,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/predicates"
-	"github.com/object88/tugboat/pkg/http/probes"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,10 +20,9 @@ var _ reconcile.Reconciler = &ReconcileReleaseHistory{}
 type ReconcileReleaseHistory struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	Client   client.Client
-	Log      logr.Logger
-	Scheme   *runtime.Scheme
-	Reporter probes.Reporter
+	Client client.Client
+	Log    logr.Logger
+	Scheme *runtime.Scheme
 }
 
 func (r *ReconcileReleaseHistory) SetupWithManager(mgr ctrl.Manager) error {
@@ -36,8 +34,6 @@ func (r *ReconcileReleaseHistory) SetupWithManager(mgr ctrl.Manager) error {
 	if err != nil {
 		return err
 	}
-
-	r.Reporter.Ready()
 
 	return nil
 }

@@ -21,8 +21,6 @@ type testhook struct {
 
 func Test_Validator_Webbook_New(t *testing.T) {
 	l := testlogger.TestLogger{T: t}
-	// s := chartmuseum.NewStatefulTest(t, l)
-	// defer s.Close()
 
 	wh := NewWebhook(l)
 	if wh.admissionDecoder == nil {
@@ -32,8 +30,6 @@ func Test_Validator_Webbook_New(t *testing.T) {
 
 func Test_Validator_Webhook(t *testing.T) {
 	l := testlogger.TestLogger{T: t}
-	// s := chartmuseum.NewStatefulTest(t, l)
-	// defer s.Close()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

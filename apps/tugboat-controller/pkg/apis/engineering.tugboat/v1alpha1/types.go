@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // +genclient
@@ -22,13 +21,19 @@ type ReleaseHistory struct {
 
 // ReleaseHistorySpec is the spec for a ReleaseHistory
 type ReleaseHistorySpec struct {
-	ReleaseName      string    `json:"releasename"`
-	ReleaseNamespace string    `json:"releasenamespace"`
-	ReleaseUID       types.UID `json:"releaseuid"`
+	ReleaseName string `json:"releasename"`
 }
 
 // ReleaseHistoryStatus is the status for a ReleaseHistory resource
 type ReleaseHistoryStatus struct {
+	DeployedAt metav1.Time              `json:"deployedat"`
+	Revisions  []ReleaseHistoryRevision `json:"revisions"`
+}
+
+type Revision uint
+
+type ReleaseHistoryRevision struct {
+	Revision   Revision    `json:"revision"`
 	DeployedAt metav1.Time `json:"deployedat"`
 }
 

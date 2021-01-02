@@ -11,7 +11,7 @@ import (
 	"github.com/object88/tugboat/pkg/logging"
 )
 
-func Defaults(logger logr.Logger, m *validator.M, v *validator.V) []*route.Route {
+func Defaults(logger logr.Logger, m *validator.M, v *validator.V, v2 *validator.V2) []*route.Route {
 	return []*route.Route{
 		{
 			Path:       "/v1/api",
@@ -25,6 +25,11 @@ func Defaults(logger logr.Logger, m *validator.M, v *validator.V) []*route.Route
 				{
 					Path:    "/validate",
 					Handler: configureValidatingAdmission(v),
+					Methods: []string{http.MethodPost},
+				},
+				{
+					Path:    "/validate-helm-secret",
+					Handler: configureValidatingHelmSecretAdmission(v2),
 					Methods: []string{http.MethodPost},
 				},
 			},
@@ -49,6 +54,12 @@ func configureMutatingAdmission(m *validator.M) http.HandlerFunc {
 }
 
 func configureValidatingAdmission(v *validator.V) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		v.ProcessAdmission(w, r)
+	}
+}
+
+func configureValidatingHelmSecretAdmission(v *validator.V2) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		v.ProcessAdmission(w, r)
 	}

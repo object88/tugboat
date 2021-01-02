@@ -2,21 +2,29 @@ package validator
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/listers/engineering.tugboat/v1alpha1"
 	v1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/restmapper"
 )
 
 type M struct {
 	Webhook
+
+	dyn    dynamic.Interface
+	mapper *restmapper.DeferredDiscoveryRESTMapper
 	scheme *runtime.Scheme
 	lister v1alpha1.ReleaseHistoryLister
 }
@@ -27,11 +35,13 @@ type patchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func NewMutator(log logr.Logger, scheme *runtime.Scheme, lister v1alpha1.ReleaseHistoryLister) *M {
+func NewMutator(log logr.Logger, scheme *runtime.Scheme, lister v1alpha1.ReleaseHistoryLister, dynamicclient dynamic.Interface, mapper *restmapper.DeferredDiscoveryRESTMapper) *M {
 	m := M{
 		Webhook: NewWebhook(log),
 		scheme:  scheme,
 		lister:  lister,
+		dyn:     dynamicclient,
+		mapper:  mapper,
 	}
 	m.WebhookProcessor = &m
 	return &m
@@ -53,7 +63,7 @@ func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 		return ar
 	}
 
-	unstruct := unstructured.Unstructured{
+	unstruct := &unstructured.Unstructured{
 		Object: map[string]interface{}{},
 	}
 	if err := json.Unmarshal(ext.Raw, &unstruct.Object); err != nil {
@@ -61,17 +71,77 @@ func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 		return ar
 	}
 
-	kind := unstruct.GetKind()
+	log := m.Log.WithValues("kind", unstruct.GetKind(), "name", unstruct.GetName(), "namespace", unstruct.GetNamespace())
 
+	unstruct = m.findOwner(log, unstruct)
+	if unstruct == nil {
+		log.Info("Incoming object does not originate from a tracked helm release")
+		return ar
+	}
+
+	annotations := unstruct.GetAnnotations()
+	helmReleaseName := annotations["meta.helm.sh/release-name"]
+	pos := []patchOperation{
+		{
+			Op:    "add",
+			Path:  "/metadata/labels/tugboat.engineering~1releasehistory",
+			Value: helmReleaseName,
+		},
+	}
+	buf, err := json.Marshal(pos)
+	if err != nil {
+		log.Info("Failed to marshal patch", "err", err)
+		return ar
+	}
+
+	log.Info("patching object")
+
+	pt := v1.PatchTypeJSONPatch
+	ar.Patch = buf
+	ar.PatchType = &pt
+	return ar
+}
+
+func (m *M) findOwner(log logr.Logger, unstruct *unstructured.Unstructured) *unstructured.Unstructured {
+	if m.checkUnstruct(log, unstruct) {
+		log.Info("Found matching owner", "find-name", unstruct.GetName())
+		return unstruct
+	}
+
+	refs := unstruct.GetOwnerReferences()
+	for _, ref := range refs {
+		gvk := schema.FromAPIVersionAndKind(ref.APIVersion, ref.Kind)
+		mapping, err := m.mapper.RESTMapping(schema.GroupKind{
+			Group: gvk.Group,
+			Kind:  gvk.Kind,
+		})
+		if err != nil {
+			log.Info("failed to get mapping", "find-name", ref.Name, "find-gvk", gvk.String(), "err", err.Error())
+			continue
+		}
+		unstruct0, err := m.dyn.Resource(mapping.Resource).Namespace(unstruct.GetNamespace()).Get(context.TODO(), ref.Name, metav1.GetOptions{})
+		if err != nil {
+			log.Info("failed to get unstructured object", "find-name", ref.Name, "find-gvk", gvk.String(), "find-mapping", mapping.Resource.String(), "err", err.Error())
+			continue
+		}
+		if u := m.findOwner(log, unstruct0); u != nil {
+			return u
+		}
+	}
+
+	return nil
+}
+
+func (m *M) checkUnstruct(log logr.Logger, unstruct *unstructured.Unstructured) bool {
 	annotations := unstruct.GetAnnotations()
 	lbls := unstruct.GetLabels()
 
 	if managedBy, ok := lbls["app.kubernetes.io/managed-by"]; !ok {
 		// No managed-by label; ignore this object
-		return ar
+		return false
 	} else if managedBy != "Helm" {
 		// There is a managed-by label, and it's not helm.  Ignore this also.
-		return ar
+		return false
 	}
 
 	helmReleaseName := annotations["meta.helm.sh/release-name"]
@@ -80,46 +150,16 @@ func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	r0, err0 := labels.NewRequirement("tugboat.engineering/release-name", selection.Equals, []string{helmReleaseName})
 	r1, err1 := labels.NewRequirement("tugboat.engineering/release-namespace", selection.Equals, []string{helmReleaseNamespace})
 	if err0 != nil || err1 != nil {
-		m.Log.Info("failed to create requirement", "err0", err0.Error(), "err1", err1.Error())
-		return ar
+		log.Info("failed to create requirement", "err0", err0.Error(), "err1", err1.Error())
+		return false
 	}
 	rhs, err := m.lister.List(labels.NewSelector().Add(*r0, *r1))
 	if err != nil {
-		m.Log.Info("failed to list", "err", err.Error())
-		return ar
+		log.Info("failed to list", "err", err.Error())
+		return false
 	}
 
-	// We are not getting any matched release histories here.  It would seem that
-	// they are created too late, if they are created in the watcher.  Will need
-	// to reshuffle them into the validator, most likely.
-	m.Log.Info("Completed lister search", "count", len(rhs))
+	log.Info("searched for releasehistories", "count", len(rhs))
 
-	for _, rh := range rhs {
-		m.Log.Info("Have matching releasehistory", "name", rh.ObjectMeta.Name)
-	}
-
-	lbls["engineering.tugboat/foo"] = "bar"
-	unstruct.SetLabels(lbls)
-
-	m.Log.Info("Creating patch", "name", req.Name, "namespace", req.Namespace, "kind", kind)
-
-	pos := []patchOperation{
-		{
-			Op:    "add",
-			Path:  "/metadata/labels/tugboat.engineering~1bar",
-			Value: "foo",
-		},
-	}
-	buf, err := json.Marshal(pos)
-	if err != nil {
-		m.Log.Error(err, "Failed to marshal patch", "name", req.Name, "namespace", req.Namespace, "kind", kind)
-		return ar
-	}
-
-	m.Log.Info("Returning response with patch", "name", req.Name, "namespace", req.Namespace, "kind", kind)
-
-	pt := v1.PatchTypeJSONPatch
-	ar.Patch = buf
-	ar.PatchType = &pt
-	return ar
+	return len(rhs) != 0
 }
