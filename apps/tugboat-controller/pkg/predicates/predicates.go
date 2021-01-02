@@ -18,7 +18,7 @@ type ResourceGenerationOrFinalizerChangedPredicate struct {
 
 // Update implements default UpdateEvent filter for validating resource version change
 func (ResourceGenerationOrFinalizerChangedPredicate) UpdateFunc(e event.UpdateEvent) bool {
-	if e.MetaNew.GetGeneration() == e.MetaOld.GetGeneration() && reflect.DeepEqual(e.MetaNew.GetFinalizers(), e.MetaOld.GetFinalizers()) {
+	if e.ObjectNew.GetGeneration() == e.ObjectNew.GetGeneration() && reflect.DeepEqual(e.ObjectNew.GetFinalizers(), e.ObjectNew.GetFinalizers()) {
 		return false
 	}
 	return true
@@ -73,7 +73,7 @@ func (HelmSecretFilterPredicate) UpdateFunc(e event.UpdateEvent) bool {
 	if s.Type != constants.HelmSecretType {
 		return false
 	}
-	for _, x := range e.MetaOld.GetFinalizers() {
+	for _, x := range e.ObjectOld.GetFinalizers() {
 		if x == constants.HelmSecretFinalizer {
 			return false
 		}

@@ -48,12 +48,12 @@ func (r *ReconcileSecret) SetupWithManager(mgr ctrl.Manager) error {
 // being deleted. If the secret is being deleted, Reconcile will find the
 // matching ReleaseHistory and mark it as "uninstalled"
 // Reconcile implements reconcile.Reconciler.
-func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	recLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	recLogger.Info("Reconciling Secret")
 
 	instance := &v1.Secret{}
-	err := r.Client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if filteredErr := client.IgnoreNotFound(err); filteredErr != nil {
 			recLogger.Error(err, "Error requesting secret")
@@ -76,7 +76,7 @@ func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result
 		}
 		if !hasFinalizer {
 			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, constants.HelmSecretFinalizer)
-			if err := r.Client.Update(context.TODO(), instance); err != nil {
+			if err := r.Client.Update(ctx, instance); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -86,7 +86,7 @@ func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result
 
 		recLogger.Info("helm secret is being deleted")
 
-		if err := r.markReleaseHistoryUninstalled(instance); err != nil {
+		if err := r.markReleaseHistoryUninstalled(ctx, instance); err != nil {
 			// Didn't go well; log and continue.
 			recLogger.Error(err, "failed to update label on releasehistory")
 		}
@@ -111,7 +111,7 @@ func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result
 				return ctrl.Result{}, err
 			}
 
-			if err := r.Client.Patch(context.TODO(), instance, client.ConstantPatch(types.JSONPatchType, buf), &client.PatchOptions{}); err != nil {
+			if err := r.Client.Patch(ctx, instance, client.RawPatch(types.JSONPatchType, buf), &client.PatchOptions{}); err != nil {
 				recLogger.Error(err, "failed to patch secret", "err", err.Error())
 				return ctrl.Result{}, err
 			}
@@ -124,7 +124,7 @@ func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileSecret) markReleaseHistoryUninstalled(s *v1.Secret) error {
+func (r *ReconcileSecret) markReleaseHistoryUninstalled(ctx context.Context, s *v1.Secret) error {
 	lbls := s.Labels
 	chartname := lbls["name"]
 
@@ -144,7 +144,7 @@ func (r *ReconcileSecret) markReleaseHistoryUninstalled(s *v1.Secret) error {
 	_, err = r.VersionedClient.
 		TugboatV1alpha1().
 		ReleaseHistories(s.Namespace).
-		Patch(context.TODO(), chartname, types.JSONPatchType, buf, metav1.PatchOptions{})
+		Patch(ctx, chartname, types.JSONPatchType, buf, metav1.PatchOptions{})
 	return err
 }
 
