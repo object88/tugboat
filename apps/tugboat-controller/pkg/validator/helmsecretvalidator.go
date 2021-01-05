@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
-	listerv1alpha1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/client/listers/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/internal/constants"
+	"github.com/object88/tugboat/pkg/k8s/apis/engineering.tugboat/v1alpha1"
+	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
+	listerv1alpha1 "github.com/object88/tugboat/pkg/k8s/client/listers/engineering.tugboat/v1alpha1"
 	v1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

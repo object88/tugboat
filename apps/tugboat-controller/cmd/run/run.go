@@ -2,22 +2,23 @@ package run
 
 import (
 	"context"
+	"time"
 
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/listers/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/releasehistory"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/controller/secret"
 	v1 "github.com/object88/tugboat/apps/tugboat-controller/pkg/http/router/v1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/validator"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/watcher"
 	"github.com/object88/tugboat/internal/cmd/common"
 	"github.com/object88/tugboat/pkg/http"
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/probes"
 	"github.com/object88/tugboat/pkg/http/router"
+	"github.com/object88/tugboat/pkg/k8s/apis"
+	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
+	"github.com/object88/tugboat/pkg/k8s/client/informers/externalversions"
+	"github.com/object88/tugboat/pkg/k8s/client/listers/engineering.tugboat/v1alpha1"
 	k8scliflags "github.com/object88/tugboat/pkg/k8s/cliflags"
-	"github.com/object88/tugboat/pkg/k8s/watchers"
+	"github.com/object88/tugboat/pkg/k8s/informermanager"
 	"github.com/spf13/cobra"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -34,12 +36,12 @@ type command struct {
 	cobra.Command
 	*common.CommonArgs
 
-	dyn                dynamic.Interface
-	mapper             *restmapper.DeferredDiscoveryRESTMapper
-	mgr                manager.Manager
-	scheme             *runtime.Scheme
-	versionedclientset *versioned.Clientset
-	w                  watchers.Watcher
+	dyn                    dynamic.Interface
+	mapper                 *restmapper.DeferredDiscoveryRESTMapper
+	mgr                    manager.Manager
+	scheme                 *runtime.Scheme
+	versionedclientset     *versioned.Clientset
+	releasehistoryinformer cache.SharedIndexInformer
 
 	httpFlagMgr *httpcliflags.FlagManager
 	k8sFlagMgr  *k8scliflags.FlagManager
@@ -112,8 +114,6 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 
 	getter := c.k8sFlagMgr.KubernetesConfig()
 
-	c.Log.Info("Registering custom resource components.")
-
 	cfg, err := getter.ToRESTConfig()
 	if err != nil {
 		return err
@@ -133,10 +133,8 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	c.w, err = watcher.New(c.Log, c.versionedclientset)
-	if err != nil {
-		return err
-	}
+	factory := externalversions.NewSharedInformerFactory(c.versionedclientset, 10*time.Second)
+	c.releasehistoryinformer = factory.Tugboat().V1alpha1().ReleaseHistories().Informer()
 
 	dc, err := getter.ToDiscoveryClient()
 	if err != nil {
@@ -154,11 +152,11 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 }
 
 func (c *command) execute(cmd *cobra.Command, args []string) error {
-	return common.Multiblock(c.Log, c.probe, c.startHTTPServer, c.startManager, c.startWatcher)
+	return common.Multiblock(c.Log, c.probe, c.startHTTPServer, c.startControllerManager, c.startInformerManager)
 }
 
 func (c *command) startHTTPServer(ctx context.Context, r probes.Reporter) error {
-	lister := v1alpha1.NewReleaseHistoryLister(c.w.GetInformer().GetIndexer())
+	lister := v1alpha1.NewReleaseHistoryLister(c.releasehistoryinformer.GetIndexer())
 
 	m := validator.NewMutator(c.Log, c.scheme, lister, c.dyn, c.mapper)
 	v := validator.New(c.Log, c.scheme)
@@ -191,7 +189,7 @@ func (c *command) startHTTPServer(ctx context.Context, r probes.Reporter) error 
 	return nil
 }
 
-func (c *command) startManager(ctx context.Context, r probes.Reporter) error {
+func (c *command) startControllerManager(ctx context.Context, r probes.Reporter) error {
 	// And now, run.  And wait.
 	c.Log.Info("starting controller manager")
 	defer c.Log.Info("controller manager complete")
@@ -217,10 +215,10 @@ func (c *command) startManager(ctx context.Context, r probes.Reporter) error {
 	return c.mgr.Start(ctx)
 }
 
-func (c *command) startWatcher(ctx context.Context, r probes.Reporter) error {
+func (c *command) startInformerManager(ctx context.Context, r probes.Reporter) error {
 	c.Log.Info("starting watcher")
 	defer c.Log.Info("watcher complete")
 
-	wm := watchers.New(c.Log)
-	return wm.Run(ctx, r, c.w)
+	mgr := informermanager.New(c.Log)
+	return mgr.Run(ctx, r, c.releasehistoryinformer)
 }

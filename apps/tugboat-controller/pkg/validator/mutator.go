@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/go-logr/logr"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/listers/engineering.tugboat/v1alpha1"
+	"github.com/object88/tugboat/pkg/k8s/client/listers/engineering.tugboat/v1alpha1"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

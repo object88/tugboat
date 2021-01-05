@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
+	"github.com/object88/tugboat/pkg/k8s/apis/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/pkg/logging/testlogger"
 	v1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
