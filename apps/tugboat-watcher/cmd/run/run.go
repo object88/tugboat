@@ -3,8 +3,9 @@ package run
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/object88/tugboat/apps/tugboat-watcher/pkg/watcher"
+	"github.com/object88/tugboat/apps/tugboat-watcher/pkg/informerhandlers"
 	"github.com/object88/tugboat/internal/cmd/common"
 	notificationsclient "github.com/object88/tugboat/internal/notifications/client"
 	notificationscliflags "github.com/object88/tugboat/internal/notifications/cliflags"
@@ -12,11 +13,13 @@ import (
 	httpcliflags "github.com/object88/tugboat/pkg/http/cliflags"
 	"github.com/object88/tugboat/pkg/http/probes"
 	"github.com/object88/tugboat/pkg/http/router"
+	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
+	"github.com/object88/tugboat/pkg/k8s/client/informers/externalversions"
 	"github.com/object88/tugboat/pkg/k8s/cliflags"
 	k8scliflags "github.com/object88/tugboat/pkg/k8s/cliflags"
-	"github.com/object88/tugboat/pkg/k8s/watchers"
+	"github.com/object88/tugboat/pkg/k8s/informermanager"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 type command struct {
@@ -27,7 +30,10 @@ type command struct {
 	k8sFlagMgr           *k8scliflags.FlagManager
 	notificationsFlagMgr *notificationscliflags.FlagManager
 
-	w watchers.Watcher
+	versionedclientset *versioned.Clientset
+
+	// w                      cache.SharedIndexInformer
+	releasehistoryinformer cache.SharedIndexInformer
 }
 
 // CreateCommand returns the `run` Command
@@ -71,16 +77,33 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to establish clients for notification listeners: %w", err)
 	}
 
-	conf, err := c.k8sFlagMgr.KubernetesConfig().ToRESTConfig()
-	if err != nil {
-		return err
-	}
-	clientset, err := kubernetes.NewForConfig(conf)
+	getter := c.k8sFlagMgr.KubernetesConfig()
+
+	cfg, err := getter.ToRESTConfig()
 	if err != nil {
 		return err
 	}
 
-	c.w = watcher.New(c.Log, clientset)
+	// clientset, err := kubernetes.NewForConfig(cfg)
+	// if err != nil {
+	// 	return err
+	// }
+
+	c.versionedclientset, err = versioned.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	// c.w = watcher.New(c.Log, clientset)
+
+	factory := externalversions.NewSharedInformerFactory(c.versionedclientset, 10*time.Second)
+	c.releasehistoryinformer = factory.Tugboat().V1alpha1().ReleaseHistories().Informer()
+
+	handler, err := informerhandlers.NewReleaseHistory(c.Log)
+	if err != nil {
+		return err
+	}
+	c.releasehistoryinformer.AddEventHandler(handler)
 
 	return nil
 }
@@ -99,8 +122,8 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 	}
 
 	f1 := func(ctx context.Context, r probes.Reporter) error {
-		wm := watchers.New(c.Log)
-		return wm.Run(ctx, r, c.w)
+		mgr := informermanager.New(c.Log)
+		return mgr.Run(ctx, r /*c.w,*/, c.releasehistoryinformer)
 	}
 
 	return common.Multiblock(c.Log, p, f0, f1)

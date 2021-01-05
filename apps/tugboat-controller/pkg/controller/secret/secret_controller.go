@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/predicates"
 	"github.com/object88/tugboat/internal/constants"
+	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

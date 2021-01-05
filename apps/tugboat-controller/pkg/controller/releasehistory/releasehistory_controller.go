@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/predicates"
+	"github.com/object88/tugboat/pkg/k8s/apis/engineering.tugboat/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

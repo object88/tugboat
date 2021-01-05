@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/apis/engineering.tugboat/v1alpha1"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned"
-	"github.com/object88/tugboat/apps/tugboat-controller/pkg/client/clientset/versioned/fake"
 	"github.com/object88/tugboat/internal/constants"
+	"github.com/object88/tugboat/pkg/k8s/apis/engineering.tugboat/v1alpha1"
+	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
+	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned/fake"
 	"github.com/object88/tugboat/pkg/logging/testlogger"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
