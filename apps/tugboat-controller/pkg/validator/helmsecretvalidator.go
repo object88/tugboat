@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/internal/constants"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type V2 struct {
@@ -37,7 +39,7 @@ func NewV2(log logr.Logger, scheme *runtime.Scheme, clientset *versioned.Clients
 	return &v
 }
 
-func (v *V2) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
+func (v *V2) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	// Validator should be very careful about what it does not allow through.
 
 	var obj *corev1.Secret
@@ -76,6 +78,15 @@ func (v *V2) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	lbls := obj.Labels
 	chartname := lbls["name"]
 	chartnamespace := obj.Namespace
+	chartrevision, err := strconv.Atoi(lbls["version"])
+	if err != nil {
+		// TODO: figure it out.
+		v.Log.Info("version label is either missing or not an integer", "raw", lbls["version"])
+		return &v1.AdmissionResponse{
+			Allowed: true,
+			UID:     req.UID,
+		}
+	}
 
 	// Check to see if there is a release history.  If there isn't one, then we
 	// want to create one and wait for it to be available.
@@ -97,7 +108,7 @@ func (v *V2) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 			UID:     req.UID,
 		}
 	}
-	_, err := v.lister.List(labels.NewSelector().Add(*r0, *r1))
+	_, err = v.lister.List(labels.NewSelector().Add(*r0, *r1))
 	if err != nil {
 		// As above, this is (probably) an internal error, but we do not want to
 		// interfere with the rest of the system. Return a success.
@@ -110,7 +121,7 @@ func (v *V2) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 
 	namespacedHistories := v.versionedclientset.TugboatV1alpha1().ReleaseHistories(obj.Namespace)
 
-	_, err = namespacedHistories.Get(context.Background(), chartname, metav1.GetOptions{})
+	rh, err := namespacedHistories.Get(context.Background(), chartname, metav1.GetOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		// There was an error, and it was not that the release history could not be
 		// found.
@@ -118,6 +129,38 @@ func (v *V2) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	} else if err == nil {
 		// There was no error, indicating that the history does already exist.
 		v.Log.Info("already have release history; ignoring", "name", chartname, "namespace", obj.Namespace)
+
+		found := false
+		for _, rev := range rh.Status.Revisions {
+			// TODO: this feels potentially buggy
+			if int(rev.Revision) == chartrevision {
+				found = true
+				break
+			}
+		}
+		if !found {
+			// This is a novel revision; add it to the pile
+			pos := []patchOperation{
+				{
+					Op:   "add",
+					Path: fmt.Sprintf("/status/revisions/%d", len(rh.Status.Revisions)),
+					Value: v1alpha1.ReleaseHistoryRevision{
+						Revision: v1alpha1.Revision(chartrevision),
+					},
+				},
+			}
+
+			buf, err := json.Marshal(pos)
+			if err != nil {
+				v.Log.Error(err, "failed to marshal patch operation")
+			}
+
+			_, err = namespacedHistories.Patch(ctx, chartname, types.JSONPatchType, buf, metav1.PatchOptions{})
+			if err != nil {
+				v.Log.Info("failed to patch existing release history with new revision", "err", err.Error())
+			}
+		}
+
 	} else {
 		v.Log.Info("release history does not already exist; creating", "name", chartname, "namespace", obj.Namespace)
 		rh := &v1alpha1.ReleaseHistory{
@@ -134,10 +177,26 @@ func (v *V2) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 				ReleaseName: chartname,
 			},
 		}
-		_, err = namespacedHistories.Create(context.Background(), rh, metav1.CreateOptions{})
+		newrh, err := namespacedHistories.Create(context.Background(), rh, metav1.CreateOptions{})
 		if err != nil {
 			v.Log.Error(err, "failed to create v1alpha1.ReleaseHistory")
 		}
+
+		newrh.Status = v1alpha1.ReleaseHistoryStatus{
+			DeployedAt: obj.CreationTimestamp,
+			Revisions: []v1alpha1.ReleaseHistoryRevision{
+				{
+					DeployedAt: obj.CreationTimestamp,
+					GVKs:       map[string]string{},
+					Revision:   v1alpha1.Revision(uint(chartrevision)),
+				},
+			},
+		}
+		_, err = namespacedHistories.UpdateStatus(context.Background(), newrh, metav1.UpdateOptions{})
+		if err != nil {
+			v.Log.Error(err, "failed to update v1alpha1.ReleaseHistory with status after create")
+		}
+
 		v.Log.Info("added", "name", chartname, "namespace", chartnamespace, "uid", obj.UID)
 	}
 

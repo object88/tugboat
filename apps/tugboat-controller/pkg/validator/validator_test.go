@@ -2,6 +2,7 @@ package validator
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -66,7 +67,7 @@ func Test_Validator_BadRequest(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := v.Process(&tc.req)
+			resp := v.Process(context.TODO(), &tc.req)
 			if resp == nil {
 				t.Errorf("Did not get expected response")
 				return
@@ -105,7 +106,7 @@ func Test_Validator_IncorrectType(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			resp := v.Process(&tc.req)
+			resp := v.Process(context.TODO(), &tc.req)
 			if resp == nil {
 				t.Errorf("Did not get expected response")
 				return

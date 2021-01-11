@@ -24,59 +24,56 @@ func (ResourceGenerationOrFinalizerChangedPredicate) UpdateFunc(e event.UpdateEv
 	return true
 }
 
-type HelmSecretFilterPredicate struct {
-	predicate.Funcs
-}
+func HelmSecretFilterPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			s, ok := e.Object.(*v1.Secret)
+			if !ok {
+				return false
+			}
+			if s.Namespace == "tugboat" || s.Namespace == "kube-system" {
+				return false
+			}
+			if s.Type != constants.HelmSecretType {
+				return false
+			}
 
-func (HelmSecretFilterPredicate) CreateFunc(e event.CreateEvent) bool {
-	s, ok := e.Object.(*v1.Secret)
-	if !ok {
-		return false
-	}
-	if s.Namespace == "tugboat" || s.Namespace == "kube-system" {
-		return false
-	}
-	if s.Type != constants.HelmSecretType {
-		return false
-	}
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			s, ok := e.Object.(*v1.Secret)
+			if !ok {
+				return false
+			}
+			if s.Namespace == "tugboat" || s.Namespace == "kube-system" {
+				return false
+			}
+			if s.Type != constants.HelmSecretType {
+				return false
+			}
 
-	return true
-}
-
-func (HelmSecretFilterPredicate) DeleteFunc(e event.DeleteEvent) bool {
-	s, ok := e.Object.(*v1.Secret)
-	if !ok {
-		return false
-	}
-	if s.Namespace == "tugboat" || s.Namespace == "kube-system" {
-		return false
-	}
-	if s.Type != constants.HelmSecretType {
-		return false
-	}
-
-	return true
-}
-
-func (HelmSecretFilterPredicate) GenericFunc(event.GenericEvent) bool {
-	return false
-}
-
-func (HelmSecretFilterPredicate) UpdateFunc(e event.UpdateEvent) bool {
-	s, ok := e.ObjectOld.(*v1.Secret)
-	if !ok {
-		return false
-	}
-	if s.Namespace == "tugboat" || s.Namespace == "kube-system" {
-		return false
-	}
-	if s.Type != constants.HelmSecretType {
-		return false
-	}
-	for _, x := range e.ObjectOld.GetFinalizers() {
-		if x == constants.HelmSecretFinalizer {
+			return true
+		},
+		GenericFunc: func(event.GenericEvent) bool {
 			return false
-		}
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			s, ok := e.ObjectOld.(*v1.Secret)
+			if !ok {
+				return false
+			}
+			if s.Namespace == "tugboat" || s.Namespace == "kube-system" {
+				return false
+			}
+			if s.Type != constants.HelmSecretType {
+				return false
+			}
+			for _, x := range e.ObjectOld.GetFinalizers() {
+				if x == constants.HelmSecretFinalizer {
+					return false
+				}
+			}
+			return true
+		},
 	}
-	return true
 }

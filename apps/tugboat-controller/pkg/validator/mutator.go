@@ -48,7 +48,7 @@ func NewMutator(log logr.Logger, scheme *runtime.Scheme, lister v1alpha1.Release
 }
 
 // Process implements WebhookProcessor
-func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
+func (m *M) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	ar := &v1.AdmissionResponse{
 		Allowed: true,
 		UID:     req.UID,
@@ -73,7 +73,7 @@ func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 
 	log := m.Log.WithValues("kind", unstruct.GetKind(), "name", unstruct.GetName(), "namespace", unstruct.GetNamespace())
 
-	unstruct = m.findOwner(log, unstruct)
+	unstruct = m.findOwner(ctx, log, unstruct)
 	if unstruct == nil {
 		log.Info("Incoming object does not originate from a tracked helm release")
 		return ar
@@ -102,7 +102,7 @@ func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	return ar
 }
 
-func (m *M) findOwner(log logr.Logger, unstruct *unstructured.Unstructured) *unstructured.Unstructured {
+func (m *M) findOwner(ctx context.Context, log logr.Logger, unstruct *unstructured.Unstructured) *unstructured.Unstructured {
 	if m.checkUnstruct(log, unstruct) {
 		log.Info("Found matching owner", "find-name", unstruct.GetName())
 		return unstruct
@@ -119,12 +119,12 @@ func (m *M) findOwner(log logr.Logger, unstruct *unstructured.Unstructured) *uns
 			log.Info("failed to get mapping", "find-name", ref.Name, "find-gvk", gvk.String(), "err", err.Error())
 			continue
 		}
-		unstruct0, err := m.dyn.Resource(mapping.Resource).Namespace(unstruct.GetNamespace()).Get(context.TODO(), ref.Name, metav1.GetOptions{})
+		unstruct0, err := m.dyn.Resource(mapping.Resource).Namespace(unstruct.GetNamespace()).Get(ctx, ref.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Info("failed to get unstructured object", "find-name", ref.Name, "find-gvk", gvk.String(), "find-mapping", mapping.Resource.String(), "err", err.Error())
 			continue
 		}
-		if u := m.findOwner(log, unstruct0); u != nil {
+		if u := m.findOwner(ctx, log, unstruct0); u != nil {
 			return u
 		}
 	}

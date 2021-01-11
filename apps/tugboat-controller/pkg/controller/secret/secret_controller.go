@@ -3,11 +3,11 @@ package secret
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/predicates"
 	"github.com/object88/tugboat/internal/constants"
+	"github.com/object88/tugboat/internal/util/slice"
 	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +33,7 @@ func (r *ReconcileSecret) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		WithLogger(r.Log).
 		For(&v1.Secret{}).
-		WithEventFilter(predicates.HelmSecretFilterPredicate{}).
+		WithEventFilter(predicates.HelmSecretFilterPredicate()).
 		// WithEventFilter(predicates.ResourceGenerationOrFinalizerChangedPredicate{}).
 		Complete(r)
 	if err != nil {
@@ -75,8 +75,9 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 			}
 		}
 		if !hasFinalizer {
-			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, constants.HelmSecretFinalizer)
-			if err := r.Client.Update(ctx, instance); err != nil {
+			newInstance := instance.DeepCopy()
+			newInstance.ObjectMeta.Finalizers = append(newInstance.ObjectMeta.Finalizers, constants.HelmSecretFinalizer)
+			if err := r.Client.Update(ctx, newInstance); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -86,6 +87,8 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 
 		recLogger.Info("helm secret is being deleted")
 
+		// TODO: change this from just setting a label to migrating to some kind of
+		// "archived" release history.
 		if err := r.markReleaseHistoryUninstalled(ctx, instance); err != nil {
 			// Didn't go well; log and continue.
 			recLogger.Error(err, "failed to update label on releasehistory")
@@ -99,22 +102,29 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 			}
 		}
 		if index != -1 {
-			pos := []patchOperation{
-				{
-					Op:   "remove",
-					Path: fmt.Sprintf("/metadata/finalizers/%d", index),
-				},
-			}
-			buf, err := json.Marshal(pos)
-			if err != nil {
-				recLogger.Error(err, "internal error: failed to marshal patch", "err", err.Error())
+			newInstance := instance.DeepCopy()
+			newInstance.Finalizers = slice.RemoveString(newInstance.Finalizers, constants.HelmSecretFinalizer)
+
+			if err := r.Client.Update(ctx, instance); err != nil {
 				return ctrl.Result{}, err
 			}
 
-			if err := r.Client.Patch(ctx, instance, client.RawPatch(types.JSONPatchType, buf), &client.PatchOptions{}); err != nil {
-				recLogger.Error(err, "failed to patch secret", "err", err.Error())
-				return ctrl.Result{}, err
-			}
+			// pos := []patchOperation{
+			// 	{
+			// 		Op:   "remove",
+			// 		Path: fmt.Sprintf("/metadata/finalizers/%d", index),
+			// 	},
+			// }
+			// buf, err := json.Marshal(pos)
+			// if err != nil {
+			// 	recLogger.Error(err, "internal error: failed to marshal patch", "err", err.Error())
+			// 	return ctrl.Result{}, err
+			// }
+
+			// if err := r.Client.Patch(ctx, instance, client.RawPatch(types.JSONPatchType, buf), &client.PatchOptions{}); err != nil {
+			// 	recLogger.Error(err, "failed to patch secret", "err", err.Error())
+			// 	return ctrl.Result{}, err
+			// }
 
 			recLogger.Info("removed finalizer from helm secret")
 
