@@ -36,9 +36,8 @@ spec:
                         type: string
                       gvks:
                         type: object
-                        properties:
-                          additionalProperties: 
-                            type: string
+                        additionalProperties: 
+                          type: string
       subresources:
         status: {}
       additionalPrinterColumns:
