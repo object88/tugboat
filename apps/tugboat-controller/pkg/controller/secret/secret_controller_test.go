@@ -47,9 +47,9 @@ func Test_markReleaseHistoryUninstalled(t *testing.T) {
 	rs := &ReconcileSecret{
 		VersionedClient: fake.NewSimpleClientset(rel),
 	}
-	err := rs.markReleaseHistoryUninstalled(context.TODO(), s)
-	if err != nil {
-		t.Errorf("Unexpected error: %s", err.Error())
+	retry := rs.markReleaseHistoryUninstalled(context.TODO(), s)
+	if retry {
+		t.Errorf("Unexpected retry")
 	}
 
 	actual, err := rs.VersionedClient.TugboatV1alpha1().ReleaseHistories("testns").Get(context.TODO(), "test", metav1.GetOptions{})
