@@ -34,6 +34,10 @@ spec:
                         type: integer
                       deployedat:
                         type: string
+                      gvks:
+                        type: object
+                        additionalProperties: 
+                          type: string
       subresources:
         status: {}
       additionalPrinterColumns:

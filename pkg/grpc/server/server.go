@@ -58,8 +58,6 @@ func (s *Server) Serve(ctx context.Context, r probes.Reporter) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 
-	r.Ready()
-
 	go func() {
 		s.logger.Info("Starting gRPC server")
 		err := s.S.Serve(lis)
@@ -69,6 +67,8 @@ func (s *Server) Serve(ctx context.Context, r probes.Reporter) error {
 
 		errCh <- err
 	}()
+
+	r.Ready()
 
 	select {
 	case <-ctx.Done():

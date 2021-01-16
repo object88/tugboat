@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -26,7 +27,7 @@ func New(log logr.Logger, scheme *runtime.Scheme) *V {
 	return &v
 }
 
-func (v *V) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
+func (v *V) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	// Validator should be very careful about what it does not allow through.  If
 	// there is a problem unmarshaling the object, then we can reject it.  If the
 	// object is not a `releasehistory`, let it through; we SHOULD never get

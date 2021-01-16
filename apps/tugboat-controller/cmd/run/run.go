@@ -158,7 +158,7 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 func (c *command) startHTTPServer(ctx context.Context, r probes.Reporter) error {
 	lister := v1alpha1.NewReleaseHistoryLister(c.releasehistoryinformer.GetIndexer())
 
-	m := validator.NewMutator(c.Log, c.scheme, lister, c.dyn, c.mapper)
+	m := validator.NewMutator(c.Log, c.versionedclientset, lister, c.dyn, c.mapper)
 	v := validator.New(c.Log, c.scheme)
 	v2 := validator.NewV2(c.Log, c.scheme, c.versionedclientset, lister)
 	rts, err := router.New(c.Log).Route(router.LoggingDefaultRoute, router.Defaults(c.probe, v1.Defaults(c.Log, m, v, v2)))

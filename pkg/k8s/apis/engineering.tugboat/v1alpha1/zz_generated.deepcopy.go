@@ -76,6 +76,13 @@ func (in *ReleaseHistoryList) DeepCopyObject() runtime.Object {
 func (in *ReleaseHistoryRevision) DeepCopyInto(out *ReleaseHistoryRevision) {
 	*out = *in
 	in.DeployedAt.DeepCopyInto(&out.DeployedAt)
+	if in.GVKs != nil {
+		in, out := &in.GVKs, &out.GVKs
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

@@ -2,16 +2,14 @@ package secret
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/apps/tugboat-controller/pkg/predicates"
 	"github.com/object88/tugboat/internal/constants"
+	"github.com/object88/tugboat/internal/util/slice"
 	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -33,7 +31,7 @@ func (r *ReconcileSecret) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		WithLogger(r.Log).
 		For(&v1.Secret{}).
-		WithEventFilter(predicates.HelmSecretFilterPredicate{}).
+		WithEventFilter(predicates.HelmSecretFilterPredicate()).
 		// WithEventFilter(predicates.ResourceGenerationOrFinalizerChangedPredicate{}).
 		Complete(r)
 	if err != nil {
@@ -75,8 +73,9 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 			}
 		}
 		if !hasFinalizer {
-			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, constants.HelmSecretFinalizer)
-			if err := r.Client.Update(ctx, instance); err != nil {
+			newInstance := instance.DeepCopy()
+			newInstance.ObjectMeta.Finalizers = append(newInstance.ObjectMeta.Finalizers, constants.HelmSecretFinalizer)
+			if err := r.Client.Update(ctx, newInstance); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -86,9 +85,12 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 
 		recLogger.Info("helm secret is being deleted")
 
-		if err := r.markReleaseHistoryUninstalled(ctx, instance); err != nil {
-			// Didn't go well; log and continue.
+		// TODO: change this from just setting a label to migrating to some kind of
+		// "archived" release history.
+		if r.markReleaseHistoryUninstalled(ctx, instance) {
+			// Didn't go well; log and retry
 			recLogger.Error(err, "failed to update label on releasehistory")
+			return ctrl.Result{Requeue: true}, nil
 		}
 
 		index := -1
@@ -99,57 +101,53 @@ func (r *ReconcileSecret) Reconcile(ctx context.Context, request reconcile.Reque
 			}
 		}
 		if index != -1 {
-			pos := []patchOperation{
-				{
-					Op:   "remove",
-					Path: fmt.Sprintf("/metadata/finalizers/%d", index),
-				},
-			}
-			buf, err := json.Marshal(pos)
-			if err != nil {
-				recLogger.Error(err, "internal error: failed to marshal patch", "err", err.Error())
-				return ctrl.Result{}, err
-			}
+			newInstance := instance.DeepCopy()
+			newInstance.Finalizers = slice.RemoveString(newInstance.Finalizers, constants.HelmSecretFinalizer)
 
-			if err := r.Client.Patch(ctx, instance, client.RawPatch(types.JSONPatchType, buf), &client.PatchOptions{}); err != nil {
-				recLogger.Error(err, "failed to patch secret", "err", err.Error())
-				return ctrl.Result{}, err
+			if err := r.Client.Update(ctx, newInstance); err != nil {
+				recLogger.Info("failed to update remove finalizer from secret", "err", err.Error())
+				return ctrl.Result{Requeue: true}, nil
 			}
 
 			recLogger.Info("removed finalizer from helm secret")
-
 		}
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileSecret) markReleaseHistoryUninstalled(ctx context.Context, s *v1.Secret) error {
+func (r *ReconcileSecret) markReleaseHistoryUninstalled(ctx context.Context, s *v1.Secret) bool {
 	lbls := s.Labels
-	chartname := lbls["name"]
-
-	pos := []patchOperation{
-		{
-			Op:    "replace",
-			Path:  "/metadata/labels/tugboat.engineering~1state",
-			Value: "uninstalled",
-		},
+	chartname, ok := lbls["name"]
+	if !ok {
+		// Odd.
+		r.Log.Info("secret does not have a 'name' label", "name", chartname, "namespace", s.Namespace)
+		return false
 	}
 
-	buf, err := json.Marshal(pos)
+	// TODO: A helm chart may get "deleted", but end up simply "uninstalling".
+	// If the user then deletes the `releasehistory`, and the tugboat controller
+	// is restarted, then during the startup process, the reconcile in the
+	// startup will attempt to patch a non-existant release history.
+	// The lesson: don't be surprised if this patch fails.
+	// The TODO: change this to a Get & Update, and ensure that it retries if
+	// the Get works and Update doesn't.
+
+	rh, err := r.VersionedClient.TugboatV1alpha1().ReleaseHistories(s.Namespace).Get(ctx, chartname, metav1.GetOptions{})
 	if err != nil {
-		return err
+		r.Log.Info("did not get release history", "name", s.Name, "namespace", s.Namespace, "err", err.Error())
+		return false
 	}
 
-	_, err = r.VersionedClient.
-		TugboatV1alpha1().
-		ReleaseHistories(s.Namespace).
-		Patch(ctx, chartname, types.JSONPatchType, buf, metav1.PatchOptions{})
-	return err
-}
+	newrh := rh.DeepCopy()
+	if _, ok := newrh.Labels["tugboat.engineering/state"]; ok {
+		newrh.Labels["tugboat.engineering/state"] = "uninstalled"
+		_, err = r.VersionedClient.TugboatV1alpha1().ReleaseHistories(s.Namespace).Update(ctx, newrh, metav1.UpdateOptions{})
+		if err != nil {
+			r.Log.Info("failed to update; retrying", "name", chartname, "namespace", s.Namespace, "err", err.Error())
+			return true
+		}
+	}
 
-type patchOperation struct {
-	Op    string      `json:"op"`
-	Path  string      `json:"path"`
-	Value interface{} `json:"value,omitempty"`
+	return false
 }

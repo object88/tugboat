@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 )
 
 type WebhookProcessor interface {
-	Process(ar *v1.AdmissionRequest) *v1.AdmissionResponse
+	Process(ctx context.Context, ar *v1.AdmissionRequest) *v1.AdmissionResponse
 }
 
 // Webhook manages the decoding and encoding of the Kubernetes admission
@@ -68,7 +69,7 @@ func (wh *Webhook) ProcessAdmission(w http.ResponseWriter, r *http.Request) {
 			},
 		}
 	} else {
-		reviewResponse = wh.Process(ar.Request)
+		reviewResponse = wh.Process(r.Context(), ar.Request)
 		reviewResponse.UID = ar.Request.UID
 	}
 

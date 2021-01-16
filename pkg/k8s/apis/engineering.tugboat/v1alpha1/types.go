@@ -4,12 +4,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +genclient
-// +genclient:noStatus
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // ReleaseHistory describes the history of the kubernetes resources described
 // in a particular release of a chart.
+// +genclient
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +resource:path=releasehistory
 type ReleaseHistory struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -20,6 +20,7 @@ type ReleaseHistory struct {
 }
 
 // ReleaseHistorySpec is the spec for a ReleaseHistory
+// +k8s:deepcopy-gen=true
 type ReleaseHistorySpec struct {
 	ReleaseName string `json:"releasename"`
 }
@@ -33,13 +34,15 @@ type ReleaseHistoryStatus struct {
 type Revision uint
 
 type ReleaseHistoryRevision struct {
-	Revision   Revision    `json:"revision"`
-	DeployedAt metav1.Time `json:"deployedat"`
+	Revision   Revision          `json:"revision"`
+	DeployedAt metav1.Time       `json:"deployedat"`
+	GVKs       map[string]string `json:"gvks"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
 // ReleaseHistoryList is a list of ReleaseHistory resources
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +resource:path=releasehistory
 type ReleaseHistoryList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

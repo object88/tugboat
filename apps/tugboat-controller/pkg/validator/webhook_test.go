@@ -62,7 +62,7 @@ func Test_Validator_Webhook(t *testing.T) {
 		},
 		UID: "123",
 	}
-	m.EXPECT().Process(gomock.AssignableToTypeOf(&v1.AdmissionRequest{})).Return(&rr)
+	m.EXPECT().Process(gomock.Any(), gomock.AssignableToTypeOf(&v1.AdmissionRequest{})).Return(&rr)
 
 	w, req := makeAdmissionRequest(t, &ar)
 	th.ProcessAdmission(w, &req)

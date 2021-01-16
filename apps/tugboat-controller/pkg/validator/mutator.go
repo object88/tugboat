@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/go-logr/logr"
+	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
 	"github.com/object88/tugboat/pkg/k8s/client/listers/engineering.tugboat/v1alpha1"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,10 +24,10 @@ import (
 type M struct {
 	Webhook
 
-	dyn    dynamic.Interface
-	mapper *restmapper.DeferredDiscoveryRESTMapper
-	scheme *runtime.Scheme
-	lister v1alpha1.ReleaseHistoryLister
+	dyn                dynamic.Interface
+	mapper             *restmapper.DeferredDiscoveryRESTMapper
+	lister             v1alpha1.ReleaseHistoryLister
+	versionedclientset *versioned.Clientset
 }
 
 type patchOperation struct {
@@ -35,20 +36,20 @@ type patchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func NewMutator(log logr.Logger, scheme *runtime.Scheme, lister v1alpha1.ReleaseHistoryLister, dynamicclient dynamic.Interface, mapper *restmapper.DeferredDiscoveryRESTMapper) *M {
+func NewMutator(log logr.Logger, clientset *versioned.Clientset, lister v1alpha1.ReleaseHistoryLister, dynamicclient dynamic.Interface, mapper *restmapper.DeferredDiscoveryRESTMapper) *M {
 	m := M{
-		Webhook: NewWebhook(log),
-		scheme:  scheme,
-		lister:  lister,
-		dyn:     dynamicclient,
-		mapper:  mapper,
+		Webhook:            NewWebhook(log),
+		versionedclientset: clientset,
+		lister:             lister,
+		dyn:                dynamicclient,
+		mapper:             mapper,
 	}
 	m.WebhookProcessor = &m
 	return &m
 }
 
 // Process implements WebhookProcessor
-func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
+func (m *M) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	ar := &v1.AdmissionResponse{
 		Allowed: true,
 		UID:     req.UID,
@@ -73,14 +74,32 @@ func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 
 	log := m.Log.WithValues("kind", unstruct.GetKind(), "name", unstruct.GetName(), "namespace", unstruct.GetNamespace())
 
-	unstruct = m.findOwner(log, unstruct)
-	if unstruct == nil {
+	ownerunstruct := m.findOwner(ctx, log, unstruct)
+	if ownerunstruct == nil {
 		log.Info("Incoming object does not originate from a tracked helm release")
 		return ar
 	}
 
-	annotations := unstruct.GetAnnotations()
+	// This one is interesting.
+	annotations := ownerunstruct.GetAnnotations()
 	helmReleaseName := annotations["meta.helm.sh/release-name"]
+
+	rel, err := m.versionedclientset.TugboatV1alpha1().ReleaseHistories(ownerunstruct.GetNamespace()).Get(ctx, helmReleaseName, metav1.GetOptions{})
+	if err != nil {
+		log.Info("failed to find release history", "name", helmReleaseName, "namespace", ownerunstruct.GetNamespace())
+		return ar
+	}
+
+	copyrel := rel.DeepCopy()
+	// "GROUP/VERSION, Kind=KIND"
+	// ex: "/v1, Kind=Pod"
+	copyrel.Status.Revisions[0].GVKs[unstruct.GroupVersionKind().String()] = "true"
+	log.Info("adding gvk", "gvk", unstruct.GroupVersionKind().String())
+	_, err = m.versionedclientset.TugboatV1alpha1().ReleaseHistories(ownerunstruct.GetNamespace()).UpdateStatus(ctx, copyrel, metav1.UpdateOptions{})
+	if err != nil {
+		log.Info("error while updating release history", "name", helmReleaseName, "namespace", ownerunstruct.GetNamespace(), "err", err.Error())
+	}
+
 	pos := []patchOperation{
 		{
 			Op:    "add",
@@ -102,7 +121,7 @@ func (m *M) Process(req *v1.AdmissionRequest) *v1.AdmissionResponse {
 	return ar
 }
 
-func (m *M) findOwner(log logr.Logger, unstruct *unstructured.Unstructured) *unstructured.Unstructured {
+func (m *M) findOwner(ctx context.Context, log logr.Logger, unstruct *unstructured.Unstructured) *unstructured.Unstructured {
 	if m.checkUnstruct(log, unstruct) {
 		log.Info("Found matching owner", "find-name", unstruct.GetName())
 		return unstruct
@@ -119,12 +138,12 @@ func (m *M) findOwner(log logr.Logger, unstruct *unstructured.Unstructured) *uns
 			log.Info("failed to get mapping", "find-name", ref.Name, "find-gvk", gvk.String(), "err", err.Error())
 			continue
 		}
-		unstruct0, err := m.dyn.Resource(mapping.Resource).Namespace(unstruct.GetNamespace()).Get(context.TODO(), ref.Name, metav1.GetOptions{})
+		unstruct0, err := m.dyn.Resource(mapping.Resource).Namespace(unstruct.GetNamespace()).Get(ctx, ref.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Info("failed to get unstructured object", "find-name", ref.Name, "find-gvk", gvk.String(), "find-mapping", mapping.Resource.String(), "err", err.Error())
 			continue
 		}
-		if u := m.findOwner(log, unstruct0); u != nil {
+		if u := m.findOwner(ctx, log, unstruct0); u != nil {
 			return u
 		}
 	}

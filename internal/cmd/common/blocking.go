@@ -32,7 +32,6 @@ func Multiblock(log logr.Logger, p *probes.Probe, fs ...Blocker) error {
 	if r == nil {
 		return fmt.Errorf("failed to get reporter for multiblock")
 	}
-	r.Ready()
 
 	// Trap OS system signals.
 	done := make(chan os.Signal, 1)
@@ -69,6 +68,8 @@ func Multiblock(log logr.Logger, p *probes.Probe, fs ...Blocker) error {
 			close(done)
 		}(k, f)
 	}
+
+	r.Ready()
 
 	// Wait for an signal to exit
 	log.Info("Waiting on any Blocker func to exit")
