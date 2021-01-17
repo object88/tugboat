@@ -9,7 +9,8 @@ ARG TARGET
 ENV DO_LOCAL_INSTALL="false"
 ENV GO111MODULE="on"
 ENV GOFLAGS="-mod=vendor"
-ENV PROTOC_ZIP="protoc-3.7.1-linux-x86_64.zip"
+ENV PROTOC_VERSION="v3.14.0"
+ENV PROTOC_ZIP="protoc-3.14.0-linux-x86_64.zip"
 
 # Set up some common elements for docker images that build from here
 # 1) Create a `appuser` user.
@@ -27,7 +28,7 @@ RUN mkdir -p /opt/appuser && \
   touch /opt/appuser/passwd && \
   echo "appuser:x:1000:" >> /opt/appuser/group && \
   echo "appuser:x:1000:1000::/home/appuser:" >> /opt/appuser/passwd
-RUN curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/${PROTOC_ZIP} -o /tmp/${PROTOC_ZIP} && \
+RUN curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/${PROTOC_VERSION}/${PROTOC_ZIP} -o /tmp/${PROTOC_ZIP} && \
   unzip -o /tmp/${PROTOC_ZIP} -d /usr/local bin/protoc && \
   unzip -o /tmp/${PROTOC_ZIP} -d /usr/local 'include/*' && \
   rm -f /tmp/${PROTOC_ZIP}
