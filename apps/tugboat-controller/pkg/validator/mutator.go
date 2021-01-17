@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/go-logr/logr"
+	"github.com/object88/tugboat/internal/constants"
 	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
 	"github.com/object88/tugboat/pkg/k8s/client/listers/engineering.tugboat/v1alpha1"
 	v1 "k8s.io/api/admission/v1"
@@ -163,11 +164,11 @@ func (m *M) checkUnstruct(log logr.Logger, unstruct *unstructured.Unstructured) 
 		return false
 	}
 
-	helmReleaseName := annotations["meta.helm.sh/release-name"]
-	helmReleaseNamespace := annotations["meta.helm.sh/release-namespace"]
+	helmReleaseName := annotations[constants.HelmLabelReleaseName]
+	helmReleaseNamespace := annotations[constants.HelmLabelReleaseNamespace]
 
-	r0, err0 := labels.NewRequirement("tugboat.engineering/release-name", selection.Equals, []string{helmReleaseName})
-	r1, err1 := labels.NewRequirement("tugboat.engineering/release-namespace", selection.Equals, []string{helmReleaseNamespace})
+	r0, err0 := labels.NewRequirement(constants.LabelReleaseName, selection.Equals, []string{helmReleaseName})
+	r1, err1 := labels.NewRequirement(constants.LabelReleaseNamespace, selection.Equals, []string{helmReleaseNamespace})
 	if err0 != nil || err1 != nil {
 		log.Info("failed to create requirement", "err0", err0.Error(), "err1", err1.Error())
 		return false

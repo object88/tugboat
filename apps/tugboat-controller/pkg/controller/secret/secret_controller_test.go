@@ -25,7 +25,7 @@ func Test_markReleaseHistoryUninstalled(t *testing.T) {
 	rel := &v1alpha1.ReleaseHistory{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"tugboat.engineering/state": "active",
+				constants.LabelState: constants.LabelStateActive,
 			},
 			Name:      "test",
 			Namespace: "testns",
@@ -56,9 +56,9 @@ func Test_markReleaseHistoryUninstalled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error getting rel: %s", err.Error())
 	}
-	if val, ok := actual.Labels["tugboat.engineering/state"]; !ok {
+	if val, ok := actual.Labels[constants.LabelState]; !ok {
 		t.Errorf("releasehistory does not have state label")
-	} else if val != "uninstalled" {
+	} else if val != constants.LabelStateUninstalled {
 		t.Errorf("releasehistory has incorrect state '%s'", val)
 	}
 }
@@ -81,7 +81,7 @@ func Test_Reconcile_SecretWithoutFinalizer(t *testing.T) {
 		t.Errorf("Secret does not have expected finalizer")
 	}
 
-	if !hasState(getReleaseHistoryFromFakeClient(t, rs.VersionedClient, rel), "active") {
+	if !hasState(getReleaseHistoryFromFakeClient(t, rs.VersionedClient, rel), constants.LabelStateActive) {
 		t.Errorf("Release history does not have 'active' state")
 	}
 }
@@ -104,7 +104,7 @@ func Test_Reconcile_SecretWithFinalizer(t *testing.T) {
 		t.Errorf("Secret does not have expected finalizer")
 	}
 
-	if !hasState(getReleaseHistoryFromFakeClient(t, rs.VersionedClient, rel), "active") {
+	if !hasState(getReleaseHistoryFromFakeClient(t, rs.VersionedClient, rel), constants.LabelStateActive) {
 		t.Errorf("Release history does not have 'active' state")
 	}
 }
@@ -131,7 +131,7 @@ func Test_Reconcile_DeletedSecretWithFinalizer(t *testing.T) {
 	}
 
 	// Ensure that the release history has been marked uninstalled.
-	if !hasState(getReleaseHistoryFromFakeClient(t, rs.VersionedClient, rel), "uninstalled") {
+	if !hasState(getReleaseHistoryFromFakeClient(t, rs.VersionedClient, rel), constants.LabelStateUninstalled) {
 		t.Error("Deleting secret does not have uninstalled state")
 	}
 }
@@ -148,7 +148,7 @@ func createSecretAndReleaseHistory(name string, namespace string, withfinalizer 
 	rel := &v1alpha1.ReleaseHistory{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"tugboat.engineering/state": "active",
+				constants.LabelState: constants.LabelStateActive,
 			},
 			Name:      name,
 			Namespace: namespace,
@@ -214,6 +214,6 @@ func hasFinalizer(obj metav1.ObjectMetaAccessor) bool {
 
 func hasState(obj metav1.ObjectMetaAccessor, expected string) bool {
 	lbls := obj.GetObjectMeta().GetLabels()
-	state, ok := lbls["tugboat.engineering/state"]
+	state, ok := lbls[constants.LabelState]
 	return ok && state == expected
 }

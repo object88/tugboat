@@ -140,8 +140,8 @@ func (r *ReconcileSecret) markReleaseHistoryUninstalled(ctx context.Context, s *
 	}
 
 	newrh := rh.DeepCopy()
-	if _, ok := newrh.Labels["tugboat.engineering/state"]; ok {
-		newrh.Labels["tugboat.engineering/state"] = "uninstalled"
+	if _, ok := newrh.Labels[constants.LabelState]; ok {
+		newrh.Labels[constants.LabelState] = constants.LabelStateUninstalled
 		_, err = r.VersionedClient.TugboatV1alpha1().ReleaseHistories(s.Namespace).Update(ctx, newrh, metav1.UpdateOptions{})
 		if err != nil {
 			r.Log.Info("failed to update; retrying", "name", chartname, "namespace", s.Namespace, "err", err.Error())
