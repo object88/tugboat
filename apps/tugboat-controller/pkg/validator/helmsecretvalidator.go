@@ -97,8 +97,8 @@ func (v *V2) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.Admissio
 
 	log.Info("found annotations")
 
-	r0, err0 := labels.NewRequirement("tugboat.engineering/release-name", selection.Equals, []string{helmReleaseName})
-	r1, err1 := labels.NewRequirement("tugboat.engineering/release-namespace", selection.Equals, []string{helmReleaseNamespace})
+	r0, err0 := labels.NewRequirement(constants.LabelReleaseName, selection.Equals, []string{helmReleaseName})
+	r1, err1 := labels.NewRequirement(constants.LabelReleaseNamespace, selection.Equals, []string{helmReleaseNamespace})
 	if err0 != nil || err1 != nil {
 		// This is an internal error, but we do not want to interfere with the rest
 		// of the system. Return a success.
@@ -168,9 +168,9 @@ func (v *V2) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.Admissio
 				Name:      chartname,
 				Namespace: chartnamespace,
 				Labels: map[string]string{
-					"tugboat.engineering/release-name":      chartname,
-					"tugboat.engineering/release-namespace": chartnamespace,
-					"tugboat.engineering/state":             "active",
+					constants.LabelReleaseName:      chartname,
+					constants.LabelReleaseNamespace: chartnamespace,
+					constants.LabelState:            constants.LabelStateActive,
 				},
 			},
 			Spec: v1alpha1.ReleaseHistorySpec{
