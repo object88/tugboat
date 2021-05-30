@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/object88/tugboat/internal/constants"
+	"github.com/object88/tugboat/pkg/k8s/apis/engineering.tugboat/v1alpha1"
 	"github.com/object88/tugboat/pkg/k8s/client/clientset/versioned"
-	"github.com/object88/tugboat/pkg/k8s/client/listers/engineering.tugboat/v1alpha1"
-	v1 "k8s.io/api/admission/v1"
+	listerv1alpha1 "github.com/object88/tugboat/pkg/k8s/client/listers/engineering.tugboat/v1alpha1"
+	"helm.sh/helm/v3/pkg/release"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
+	listercorev1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/restmapper"
 )
 
@@ -27,7 +31,8 @@ type M struct {
 
 	dyn                dynamic.Interface
 	mapper             *restmapper.DeferredDiscoveryRESTMapper
-	lister             v1alpha1.ReleaseHistoryLister
+	lister             listerv1alpha1.ReleaseHistoryLister
+	secretlister       listercorev1.SecretLister
 	versionedclientset *versioned.Clientset
 }
 
@@ -37,11 +42,12 @@ type patchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-func NewMutator(log logr.Logger, clientset *versioned.Clientset, lister v1alpha1.ReleaseHistoryLister, dynamicclient dynamic.Interface, mapper *restmapper.DeferredDiscoveryRESTMapper) *M {
+func NewMutator(log logr.Logger, clientset *versioned.Clientset, lister listerv1alpha1.ReleaseHistoryLister, secretlister listercorev1.SecretLister, dynamicclient dynamic.Interface, mapper *restmapper.DeferredDiscoveryRESTMapper) *M {
 	m := M{
 		Webhook:            NewWebhook(log),
 		versionedclientset: clientset,
 		lister:             lister,
+		secretlister:       secretlister,
 		dyn:                dynamicclient,
 		mapper:             mapper,
 	}
@@ -50,8 +56,8 @@ func NewMutator(log logr.Logger, clientset *versioned.Clientset, lister v1alpha1
 }
 
 // Process implements WebhookProcessor
-func (m *M) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.AdmissionResponse {
-	ar := &v1.AdmissionResponse{
+func (m *M) Process(ctx context.Context, req *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	ar := &admissionv1.AdmissionResponse{
 		Allowed: true,
 		UID:     req.UID,
 	}
@@ -83,7 +89,7 @@ func (m *M) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.Admission
 
 	// This one is interesting.
 	annotations := ownerunstruct.GetAnnotations()
-	helmReleaseName := annotations["meta.helm.sh/release-name"]
+	helmReleaseName := annotations[constants.HelmLabelReleaseName]
 
 	rel, err := m.versionedclientset.TugboatV1alpha1().ReleaseHistories(ownerunstruct.GetNamespace()).Get(ctx, helmReleaseName, metav1.GetOptions{})
 	if err != nil {
@@ -91,14 +97,21 @@ func (m *M) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.Admission
 		return ar
 	}
 
-	copyrel := rel.DeepCopy()
-	// "GROUP/VERSION, Kind=KIND"
-	// ex: "/v1, Kind=Pod"
-	copyrel.Status.Revisions[0].GVKs[unstruct.GroupVersionKind().String()] = "true"
-	log.Info("adding gvk", "gvk", unstruct.GroupVersionKind().String())
-	_, err = m.versionedclientset.TugboatV1alpha1().ReleaseHistories(ownerunstruct.GetNamespace()).UpdateStatus(ctx, copyrel, metav1.UpdateOptions{})
-	if err != nil {
-		log.Info("error while updating release history", "name", helmReleaseName, "namespace", ownerunstruct.GetNamespace(), "err", err.Error())
+	deployingRevision := m.findDeployingRevision(ownerunstruct.GetNamespace(), helmReleaseName, rel.Status.Revisions)
+	if deployingRevision == v1alpha1.Revision(0) {
+		log.Info("failed to find an actively deploying revision")
+	}
+
+	if i := indexOfRevision(rel.Status.Revisions, deployingRevision); i != -1 {
+		copyrel := rel.DeepCopy()
+		// "GROUP/VERSION, Kind=KIND"
+		// ex: "/v1, Kind=Pod", "apps/v1, Kind=StatefulSet"
+		copyrel.Status.Revisions[i].GVKs[unstruct.GroupVersionKind().String()] = "true"
+		log.Info("adding gvk", "gvk", unstruct.GroupVersionKind().String())
+		_, err = m.versionedclientset.TugboatV1alpha1().ReleaseHistories(ownerunstruct.GetNamespace()).UpdateStatus(ctx, copyrel, metav1.UpdateOptions{})
+		if err != nil {
+			log.Info("error while updating release history", "name", helmReleaseName, "namespace", ownerunstruct.GetNamespace(), "err", err.Error())
+		}
 	}
 
 	pos := []patchOperation{
@@ -106,6 +119,11 @@ func (m *M) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.Admission
 			Op:    "add",
 			Path:  "/metadata/labels/tugboat.engineering~1releasehistory",
 			Value: helmReleaseName,
+		},
+		{
+			Op:    "add",
+			Path:  "/metadata/labels/tugboat.engineering~1revision",
+			Value: strconv.Itoa(int(deployingRevision)),
 		},
 	}
 	buf, err := json.Marshal(pos)
@@ -116,10 +134,50 @@ func (m *M) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.Admission
 
 	log.Info("patching object")
 
-	pt := v1.PatchTypeJSONPatch
+	pt := admissionv1.PatchTypeJSONPatch
 	ar.Patch = buf
 	ar.PatchType = &pt
 	return ar
+}
+
+// findDeployingRevision determines the revision that an object was created by.
+func (m *M) findDeployingRevision(namespace string, name string, revs []v1alpha1.ReleaseHistoryRevision) v1alpha1.Revision {
+	r0, err0 := labels.NewRequirement("name", selection.Equals, []string{name})
+	r1, err1 := labels.NewRequirement("owner", selection.Equals, []string{"helm"})
+	r2, err2 := labels.NewRequirement("status", selection.In, []string{string(release.StatusPendingInstall), string(release.StatusPendingUpgrade), string(release.StatusPendingRollback)})
+	if err0 != nil || err1 != nil || err2 != nil {
+		m.Log.Info("failed to create requirement", "err0", err0.Error(), "err1", err1.Error(), "err2", err2.Error())
+		return v1alpha1.Revision(0)
+	}
+
+	dumpedsecrets, _ := m.secretlister.Secrets(namespace).List(labels.NewSelector().Add(*r0, *r1))
+	for _, x := range dumpedsecrets {
+		m.Log.Info("Secret", "name", x.GetName(), "status", x.GetLabels()["status"])
+	}
+
+	secrets, err := m.secretlister.Secrets(namespace).List(labels.NewSelector().Add(*r0, *r1, *r2))
+	if err != nil {
+		return v1alpha1.Revision(0)
+	}
+
+	rev := 0
+	for _, x := range secrets {
+		rev0, _ := strconv.Atoi(x.GetLabels()["version"])
+		if rev < rev0 {
+			rev = rev0
+		}
+	}
+
+	return v1alpha1.Revision(rev)
+}
+
+func indexOfRevision(revs []v1alpha1.ReleaseHistoryRevision, rev v1alpha1.Revision) int {
+	for i, x := range revs {
+		if x.Revision == rev {
+			return i
+		}
+	}
+	return -1
 }
 
 func (m *M) findOwner(ctx context.Context, log logr.Logger, unstruct *unstructured.Unstructured) *unstructured.Unstructured {

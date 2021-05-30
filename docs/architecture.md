@@ -38,3 +38,11 @@ Reference material for further understanding of Validating Admission Webbooks:
 Note that the current implementation deployed with a _self-signed certificate_, and should not be put into production.
 
 ## Tugboat Watcher
+
+
+# Notes
+
+How to track objects types as they are in scope and out of scope.
+
+* Mutator tracks resource declarations as they appear
+* 

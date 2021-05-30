@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type V2 struct {
@@ -76,9 +75,9 @@ func (v *V2) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.Admissio
 	}
 
 	lbls := obj.Labels
-	chartname := lbls["name"]
+	chartname := lbls[constants.HelmSecretLabelName]
 	chartnamespace := obj.Namespace
-	chartrevision, err := strconv.Atoi(lbls["version"])
+	chartrevision, err := strconv.Atoi(lbls[constants.HelmSecretLabelRevision])
 	if err != nil {
 		// TODO: figure it out.
 		v.Log.Info("version label is either missing or not an integer", "raw", lbls["version"])
@@ -132,32 +131,28 @@ func (v *V2) Process(ctx context.Context, req *v1.AdmissionRequest) *v1.Admissio
 
 		found := false
 		for _, rev := range rh.Status.Revisions {
-			// TODO: this feels potentially buggy
 			if int(rev.Revision) == chartrevision {
 				found = true
 				break
 			}
 		}
+		// TODO: consider checking the "status" of the secret so that we don't
+		// create revision records for past objects.
+		// if !found && obj.Labels["status"] == "deploying" {
 		if !found {
 			// This is a novel revision; add it to the pile
-			pos := []patchOperation{
-				{
-					Op:   "add",
-					Path: fmt.Sprintf("/status/revisions/%d", len(rh.Status.Revisions)),
-					Value: v1alpha1.ReleaseHistoryRevision{
-						Revision: v1alpha1.Revision(chartrevision),
-					},
-				},
+			rev := v1alpha1.ReleaseHistoryRevision{
+				DeployedAt: obj.CreationTimestamp,
+				GVKs:       map[string]string{},
+				Revision:   v1alpha1.Revision(chartrevision),
 			}
 
-			buf, err := json.Marshal(pos)
-			if err != nil {
-				v.Log.Error(err, "failed to marshal patch operation")
-			}
+			newrh := rh.DeepCopy()
+			newrh.Status.Revisions = append(newrh.Status.Revisions, rev)
 
-			_, err = namespacedHistories.Patch(ctx, chartname, types.JSONPatchType, buf, metav1.PatchOptions{})
+			_, err = namespacedHistories.UpdateStatus(ctx, newrh, metav1.UpdateOptions{})
 			if err != nil {
-				v.Log.Info("failed to patch existing release history with new revision", "err", err.Error())
+				v.Log.Info("failed to upate existing release history status with new revision", "err", err.Error())
 			}
 		}
 

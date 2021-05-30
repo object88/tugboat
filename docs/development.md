@@ -58,7 +58,7 @@ Docker images are tagged using the current git tag and short-form SHA.
 
 #### Usage:
 ```
-./docker.sh [FLAGS]  [TARGET-1 [TARGET-2 [...]]]
+./docker.sh [FLAGS] [TARGET-1 [TARGET-2 [...]]]
 ```
 
 #### Options and flags
