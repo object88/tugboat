@@ -14,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
+// WebhookProcessor is the interface that the HTTP web hooks call into via the
+// ProcessAdmission func on Webhook struct
 type WebhookProcessor interface {
 	Process(ctx context.Context, ar *v1.AdmissionRequest) *v1.AdmissionResponse
 }

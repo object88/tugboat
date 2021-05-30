@@ -130,8 +130,6 @@ func (r *ReconcileSecret) markReleaseHistoryUninstalled(ctx context.Context, s *
 	// is restarted, then during the startup process, the reconcile in the
 	// startup will attempt to patch a non-existant release history.
 	// The lesson: don't be surprised if this patch fails.
-	// The TODO: change this to a Get & Update, and ensure that it retries if
-	// the Get works and Update doesn't.
 
 	rh, err := r.VersionedClient.TugboatV1alpha1().ReleaseHistories(s.Namespace).Get(ctx, chartname, metav1.GetOptions{})
 	if err != nil {

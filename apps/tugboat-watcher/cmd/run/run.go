@@ -19,6 +19,11 @@ import (
 	k8scliflags "github.com/object88/tugboat/pkg/k8s/cliflags"
 	"github.com/object88/tugboat/pkg/k8s/informermanager"
 	"github.com/spf13/cobra"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -33,6 +38,7 @@ type command struct {
 	versionedclientset *versioned.Clientset
 
 	// w                      cache.SharedIndexInformer
+	eventinformer          cache.SharedIndexInformer
 	releasehistoryinformer cache.SharedIndexInformer
 }
 
@@ -84,15 +90,46 @@ func (c *command) preexecute(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// clientset, err := kubernetes.NewForConfig(cfg)
-	// if err != nil {
-	// 	return err
-	// }
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
 
 	c.versionedclientset, err = versioned.NewForConfig(cfg)
 	if err != nil {
 		return err
 	}
+
+	// r, err := labels.NewRequirement("tugboat.engineering/releasehistory", selection.Exists, nil)
+	// if err != nil {
+	//  // log.Info("failed to create requirement", "err0", err0.Error(), "err1", err1.Error())
+	//  return err
+	// }
+
+	fact := informers.NewSharedInformerFactoryWithOptions(clientset, 1*time.Second, informers.WithTweakListOptions(func(lo *metav1.ListOptions) {
+		// lo.LabelSelector = labels.NewSelector().Add(*r).String()
+		lo.FieldSelector = field.NewPath("involvedObject.namespace=default").String()
+	}))
+
+	c.eventinformer = fact.Core().V1().Events().Informer()
+
+	c.eventinformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			evt, ok := obj.(*v1.Event)
+			if !ok {
+				return
+			}
+			fmt.Printf("thing added: %s \n", evt.InvolvedObject.Name)
+		},
+		DeleteFunc: func(obj interface{}) {
+			// fmt.Printf("service deleted: %s \n", obj)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			// fmt.Printf("service changed \n")
+		},
+	})
+
+	// v1.Event.
 
 	// c.w = watcher.New(c.Log, clientset)
 
@@ -123,7 +160,7 @@ func (c *command) execute(cmd *cobra.Command, args []string) error {
 
 	f1 := func(ctx context.Context, r probes.Reporter) error {
 		mgr := informermanager.New(c.Log)
-		return mgr.Run(ctx, r /*c.w,*/, c.releasehistoryinformer)
+		return mgr.Run(ctx, r, c.eventinformer, c.releasehistoryinformer)
 	}
 
 	return common.Multiblock(c.Log, p, f0, f1)
